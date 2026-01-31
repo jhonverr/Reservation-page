@@ -25,7 +25,7 @@ function App() {
   return (
     <div className="container">
       <header className="header">
-        <h1 className="logo">Lumina Theater</h1>
+        <h1 className="logo">더열정 뮤지컬 예매 페이지</h1>
         <nav>
           <button className="nav-btn">공연 정보</button>
           <button className="nav-btn active">예매하기</button>
