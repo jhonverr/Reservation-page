@@ -1,31 +1,37 @@
-import { Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import ManagePerformance from './ManagePerformance';
+import CreatePerformance from './CreatePerformance';
 import ReservationStatus from './ReservationStatus';
 
 function Dashboard() {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
 
-    return (
-        <div className="dashboard-container">
-            <aside className="sidebar">
-                <h2 className="logo" style={{ fontSize: '1.2rem', marginBottom: '2rem' }}>Admin Link</h2>
-                <nav className="side-nav">
-                    <Link to="/admin/dashboard/manage" className="nav-item">공연 관리</Link>
-                    <Link to="/admin/dashboard/status" className="nav-item">예매자 현황</Link>
-                    <button onClick={() => navigate('/')} className="nav-item logout">로그아웃 (홈으로)</button>
-                </nav>
-            </aside>
+  return (
+    <div className="dashboard-container">
+      <aside className="sidebar">
+        <h2 className="logo" style={{ fontSize: '1.2rem', marginBottom: '2rem' }}>Admin Link</h2>
+        <nav className="side-nav">
+          <Link to="/admin/dashboard/manage" className="nav-item">공연 관리</Link>
+          <Link to="/admin/dashboard/status" className="nav-item">예매자 현황</Link>
+          <button onClick={() => {
+            localStorage.removeItem('isAdmin');
+            navigate('/admin/login');
+          }} className="nav-item logout">로그아웃 (로그인 페이지로)</button>
+        </nav>
+      </aside>
 
-            <main className="dashboard-content">
-                <Routes>
-                    <Route path="manage" element={<ManagePerformance />} />
-                    <Route path="status" element={<ReservationStatus />} />
-                    <Route path="*" element={<div style={{ padding: '2rem' }}><h3>메뉴를 선택해주세요.</h3></div>} />
-                </Routes>
-            </main>
+      <main className="dashboard-content">
+        <Routes>
+          <Route index element={<Navigate to="manage" replace />} />
+          <Route path="manage" element={<ManagePerformance />} />
+          <Route path="create" element={<CreatePerformance />} />
+          <Route path="status" element={<ReservationStatus />} />
+          <Route path="*" element={<div style={{ padding: '2rem' }}><h3>메뉴를 선택해주세요.</h3></div>} />
+        </Routes>
+      </main>
 
-            <style>{`
+      <style>{`
         .dashboard-container {
           display: flex;
           min-height: 100vh;
@@ -85,8 +91,8 @@ function Dashboard() {
           font-weight: 600;
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }
 
 export default Dashboard;
