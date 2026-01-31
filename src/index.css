@@ -1,14 +1,15 @@
 :root {
-  --bg-primary: #0f0c29;
-  --bg-secondary: #302b63;
-  --bg-accent: #24243e;
-  --text-primary: #ffffff;
-  --text-secondary: #b0b0b0;
-  --accent-color: #f7b731;
-  --primary-btn: #6c5ce7;
-  --primary-btn-hover: #a29bfe;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-accent: #e9ecef;
+  --text-primary: #2d3436;
+  --text-secondary: #636e72;
+  --accent-color: #ff9f43;
+  --primary-btn: #ee5253;
+  /* Use a complementary warm red/orange for primary btn or keep it orange */
+  --primary-btn-hover: #ff6b6b;
   --border-radius: 12px;
-  --card-bg: rgba(255, 255, 255, 0.05);
+  --card-bg: #ffffff;
 }
 
 body {

@@ -1,19 +1,33 @@
-import { Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
+import { Routes, Route, Link, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import ManagePerformance from './ManagePerformance';
 import CreatePerformance from './CreatePerformance';
+import EditPerformance from './EditPerformance';
 import ReservationStatus from './ReservationStatus';
 
 function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleStatusClick = (e) => {
+    e.preventDefault();
+    if (location.pathname === '/admin/dashboard/status') {
+      // Already on status page, trigger refresh
+      setRefreshKey(prev => prev + 1);
+    } else {
+      // Navigate to status page
+      navigate('/admin/dashboard/status');
+    }
+  };
 
   return (
     <div className="dashboard-container">
       <aside className="sidebar">
-        <h2 className="logo" style={{ fontSize: '1.2rem', marginBottom: '2rem' }}>Admin Link</h2>
+        <h2 className="logo" style={{ fontSize: '1.2rem', marginBottom: '2rem' }}>Admin Page</h2>
         <nav className="side-nav">
           <Link to="/admin/dashboard/manage" className="nav-item">공연 관리</Link>
-          <Link to="/admin/dashboard/status" className="nav-item">예매자 현황</Link>
+          <a href="#" onClick={handleStatusClick} className="nav-item">예약 현황</a>
           <button onClick={() => {
             localStorage.removeItem('isAdmin');
             navigate('/admin/login');
@@ -26,7 +40,8 @@ function Dashboard() {
           <Route index element={<Navigate to="manage" replace />} />
           <Route path="manage" element={<ManagePerformance />} />
           <Route path="create" element={<CreatePerformance />} />
-          <Route path="status" element={<ReservationStatus />} />
+          <Route path="edit/:id" element={<EditPerformance />} />
+          <Route path="status" element={<ReservationStatus key={refreshKey} />} />
           <Route path="*" element={<div style={{ padding: '2rem' }}><h3>메뉴를 선택해주세요.</h3></div>} />
         </Routes>
       </main>
@@ -35,23 +50,25 @@ function Dashboard() {
         .dashboard-container {
           display: flex;
           min-height: 100vh;
-          background: #1a1a1a;
+          background: var(--bg-primary);
         }
         .sidebar {
           width: 250px;
           background: var(--bg-secondary);
           padding: 2rem;
-          border-right: 1px solid rgba(255,255,255,0.1);
+          border-right: 1px solid rgba(0,0,0,0.05);
+          display: flex;
+          flex-direction: column;
         }
         .side-nav {
           display: flex;
           flex-direction: column;
-          gap: 1rem;
+          gap: 0.5rem;
         }
         .nav-item {
           color: var(--text-secondary);
           text-decoration: none;
-          padding: 0.75rem;
+          padding: 0.75rem 1rem;
           border-radius: 8px;
           transition: all 0.2s;
           text-align: left;
@@ -59,36 +76,58 @@ function Dashboard() {
           border: none;
           font-size: 1rem;
           cursor: pointer;
+          font-weight: 500;
         }
         .nav-item:hover, .nav-item.active {
-          background: rgba(255,255,255,0.1);
-          color: white;
+          background: rgba(255, 159, 67, 0.1);
+          color: var(--accent-color);
         }
         .logout {
           margin-top: auto;
-          color: #ff6b6b;
+          color: #e74c3c;
+          border: 1px solid rgba(231, 76, 60, 0.2);
+        }
+        .logout:hover {
+          background: rgba(231, 76, 60, 0.05);
         }
         .dashboard-content {
           flex: 1;
-          padding: 2rem;
+          padding: 2.5rem;
           overflow-y: auto;
+          width: 100%;
+        }
+        .table-container {
+          background: #fff;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+          border: 1px solid rgba(0,0,0,0.05);
+          overflow-x: auto;
+          margin-top: 1.5rem;
         }
         table {
           width: 100%;
           border-collapse: collapse;
-          margin-top: 1rem;
-          background: rgba(255,255,255,0.05);
-          border-radius: 8px;
-          overflow: hidden;
+          /* Removed min-width to allow fitting if possible */
         }
         th, td {
-          padding: 1rem;
+          padding: 1rem 0.75rem; /* Reduced padding for better fit */
           text-align: left;
-          border-bottom: 1px solid rgba(255,255,255,0.1);
+          border-bottom: 1px solid rgba(0,0,0,0.05);
+          white-space: nowrap;
         }
         th {
-          background: rgba(0,0,0,0.3);
-          font-weight: 600;
+          background: #f8f9fa;
+          font-weight: 700;
+          color: var(--text-secondary);
+          font-size: 0.85rem;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        tr:last-child td {
+          border-bottom: none;
+        }
+        tr:hover td {
+          background: #fafafa;
         }
       `}</style>
     </div>
