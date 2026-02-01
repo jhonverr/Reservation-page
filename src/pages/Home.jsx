@@ -330,25 +330,39 @@ function Home() {
         setLoading(false);
     };
 
+    const getDayOfWeek = (dateStr) => {
+        const days = ['일', '월', '화', '수', '목', '금', '토'];
+        const date = new Date(dateStr.replace(/\./g, '-'));
+        return days[date.getDay()];
+    };
+
     return (
         <div className="container">
             <header className="header">
-                <h1 className="logo" onClick={() => setView('performances')} style={{ cursor: 'pointer' }}>더열정 뮤지컬</h1>
-                <nav>
-                    <button className={`nav-btn ${view === 'performances' ? 'active' : ''}`} onClick={() => setView('performances')}>공연 정보</button>
-                    <button className={`nav-btn ${view === 'history' ? 'active' : ''}`} onClick={() => {
-                        if (!isIdentified) setView('login');
-                        else {
-                            setView('history');
-                            fetchUserReservations();
-                        }
-                    }}>예매 내역</button>
-                    {isIdentified ? (
-                        <button className="nav-btn" onClick={handleLogout} style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>로그아웃</button>
-                    ) : (
-                        <button className={`nav-btn ${view === 'login' ? 'active' : ''}`} onClick={() => setView('login')}>로그인</button>
-                    )}
-                </nav>
+                <div className="header-top">
+                    <h1 className="logo" onClick={() => setView('performances')} style={{ cursor: 'pointer' }}>더열정 뮤지컬 예매 페이지</h1>
+                </div>
+                <div className="header-bottom">
+                    <nav className="nav-container">
+                        <div className="menu-group">
+                            <button className={`nav-btn ${view === 'performances' ? 'active' : ''}`} onClick={() => setView('performances')}>공연 정보</button>
+                            <button className={`nav-btn ${view === 'history' ? 'active' : ''}`} onClick={() => {
+                                if (!isIdentified) setView('login');
+                                else {
+                                    setView('history');
+                                    fetchUserReservations();
+                                }
+                            }}>예매 내역</button>
+                        </div>
+                        <div className="auth-group">
+                            {isIdentified ? (
+                                <button className="auth-btn-logout" onClick={handleLogout}>로그아웃</button>
+                            ) : (
+                                <button className={`auth-btn ${view === 'login' ? 'active' : ''}`} onClick={() => setView('login')}>로그인</button>
+                            )}
+                        </div>
+                    </nav>
+                </div>
             </header>
 
             <main className="main-content">
@@ -382,7 +396,7 @@ function Home() {
                     <section className="performances-view">
                         {/* 2.1 Ongoing Performances */}
                         <div style={{ marginBottom: '4rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
                                 <h2 style={{ margin: 0 }}>진행 중인 공연</h2>
                                 <span style={{ padding: '0.4rem 0.8rem', background: 'var(--accent-color)', color: '#fff', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold' }}>
                                     {performances.filter(p => {
@@ -394,7 +408,7 @@ function Home() {
                                 </span>
                             </div>
 
-                            <div className="grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '2.5rem' }}>
+                            <div className="grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 380px), 1fr))', gap: '2.5rem' }}>
                                 {performances.filter(p => {
                                     const [, endStr] = (p.date_range || '').split(' - ');
                                     if (!endStr) return true;
@@ -449,7 +463,7 @@ function Home() {
                                                     <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><span>📅</span> {perf.date_range}</p>
                                                     <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><span>📍</span> {perf.location}</p>
                                                 </div>
-                                                <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #f5f5f5', paddingTop: '1rem' }}>
+                                                <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #f5f5f5', paddingTop: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                                                         <span style={{ fontSize: '0.75rem', color: '#999' }}>현재 예매 상황</span>
                                                         <span style={{ fontWeight: '800', fontSize: '1rem', color: isSoldOut ? '#e74c3c' : 'var(--accent-color)' }}>
@@ -479,7 +493,7 @@ function Home() {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
                                         <h2 style={{ margin: 0, color: '#999' }}>종료된 공연</h2>
                                     </div>
-                                    <div className="grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '2.5rem' }}>
+                                    <div className="grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 380px), 1fr))', gap: '2.5rem' }}>
                                         {performances.filter(p => {
                                             const [, endStr] = (p.date_range || '').split(' - ');
                                             if (!endStr) return false;
@@ -545,11 +559,29 @@ function Home() {
 
                 {/* 3. Booking View */}
                 {view === 'reserve' && selectedPerf && (
-                    <section className="booking-detail" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
+                    <section className="booking-detail perf-detail-grid">
                         <div className="perf-info-panel">
                             <img src={selectedPerf.poster_url} alt={selectedPerf.title} style={{ width: '100%', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }} />
                             <div style={{ marginTop: '2rem' }}>
                                 <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>{selectedPerf.title}</h2>
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.6rem',
+                                    marginBottom: '2rem',
+                                    fontSize: '0.95rem',
+                                    color: 'var(--text-secondary)'
+                                }}>
+                                    <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span>📍</span> <b>장소:</b> {selectedPerf.location}
+                                    </p>
+                                    <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span>⏱️</span> <b>공연 시간:</b> {selectedPerf.duration}
+                                    </p>
+                                    <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span>🔞</span> <b>관람 등급:</b> {selectedPerf.age_rating === 'all' ? '전체 관람가' : `${selectedPerf.age_rating}세 이상 관람가`}
+                                    </p>
+                                </div>
                                 <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', whiteSpace: 'pre-line', marginBottom: '2rem' }}>{selectedPerf.description}</p>
 
                                 <div style={{
@@ -581,7 +613,7 @@ function Home() {
                             </div>
                         </div>
 
-                        <div className="booking-card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <div className="booking-card" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                             {(() => {
                                 const [, endStr] = (selectedPerf.date_range || '').split(' - ');
                                 const isEnded = endStr && new Date(endStr.replace(/\./g, '-')) < new Date(new Date().setHours(0, 0, 0, 0));
@@ -590,7 +622,7 @@ function Home() {
                                     return (
                                         <div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                                                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
                                                     <span>🎟️</span> 티켓 예매
                                                 </h3>
                                                 <button onClick={() => setView('performances')} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
@@ -608,7 +640,9 @@ function Home() {
                                                         required
                                                     >
                                                         {sessions.map((s, idx) => (
-                                                            <option key={idx} value={`${s.date}|${s.time}`}>{s.date} ({s.time})</option>
+                                                            <option key={idx} value={`${s.date}|${s.time}`}>
+                                                                {s.date} ({getDayOfWeek(s.date)}) {s.time}
+                                                            </option>
                                                         ))}
                                                     </select>
                                                 </div>
@@ -625,7 +659,7 @@ function Home() {
 
                                                 <div className="form-group">
                                                     <label>매수</label>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                                                    <div className="ticket-count-box" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                                         <div style={{
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -638,47 +672,38 @@ function Home() {
                                                                 type="button"
                                                                 onClick={() => setFormData(p => ({ ...p, tickets: Math.max(1, p.tickets - 1) }))}
                                                                 style={{
-                                                                    padding: '0.6rem 1.2rem',
+                                                                    padding: '0.6rem 1rem',
                                                                     border: 'none',
                                                                     background: '#f8f9fa',
                                                                     cursor: 'pointer',
-                                                                    fontSize: '1.2rem',
+                                                                    fontSize: '1.1rem',
                                                                     borderRight: '1px solid #ddd'
                                                                 }}
                                                             >-</button>
-                                                            <div style={{ padding: '0 1.5rem', fontWeight: 'bold', minWidth: '4rem', textAlign: 'center', fontSize: '1.1rem' }}>
+                                                            <div style={{ padding: '0 1rem', fontWeight: 'bold', minWidth: '3rem', textAlign: 'center', fontSize: '1.1rem' }}>
                                                                 {formData.tickets}
                                                             </div>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setFormData(p => ({ ...p, tickets: p.tickets + 1 }))}
                                                                 style={{
-                                                                    padding: '0.6rem 1.2rem',
+                                                                    padding: '0.6rem 1rem',
                                                                     border: 'none',
                                                                     background: '#f8f9fa',
                                                                     cursor: 'pointer',
-                                                                    fontSize: '1.2rem',
+                                                                    fontSize: '1.1rem',
                                                                     borderLeft: '1px solid #ddd'
                                                                 }}
                                                             >+</button>
                                                         </div>
-                                                        <span style={{ color: 'var(--text-secondary)', fontWeight: 'bold' }}>장</span>
+                                                        <span style={{ color: 'var(--text-secondary)', fontWeight: 'bold', fontSize: '0.9rem' }}>장</span>
                                                     </div>
                                                 </div>
 
-                                                <div style={{
-                                                    marginTop: '2rem',
-                                                    padding: '1.5rem',
-                                                    background: 'var(--accent-color)',
-                                                    borderRadius: '12px',
-                                                    color: '#fff',
-                                                    display: 'flex',
-                                                    justifyContent: 'space-between',
-                                                    alignItems: 'center'
-                                                }}>
+                                                <div className="payment-box">
                                                     <div>
-                                                        <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.9 }}>최종 결제 금액 (현장 결제)</p>
-                                                        <h3 style={{ margin: 0, fontSize: '1.8rem' }}>{(formData.tickets * selectedPerf.price).toLocaleString()}원</h3>
+                                                        <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.9 }}>최종 결제 금액 (현장 결제)</p>
+                                                        <h3 style={{ margin: 0, fontSize: '1.6rem' }}>{(formData.tickets * selectedPerf.price).toLocaleString()}원</h3>
                                                     </div>
                                                     <button
                                                         type="submit"
@@ -686,10 +711,10 @@ function Home() {
                                                         style={{
                                                             background: '#fff',
                                                             color: 'var(--accent-color)',
-                                                            padding: '0.8rem 1.5rem',
+                                                            padding: '0.7rem 1.2rem',
                                                             borderRadius: '8px',
                                                             fontWeight: 'bold',
-                                                            fontSize: '1rem',
+                                                            fontSize: '0.95rem',
                                                             border: 'none',
                                                             cursor: 'pointer',
                                                             boxShadow: '0 4px 10px rgba(0,0,0,0.1)'

@@ -153,7 +153,7 @@ function CreatePerformance() {
                 </div>
 
                 {/* 3. 상세 정보 */}
-                <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="admin-form-grid">
                     <div className="form-group">
                         <label>공연 장소</label>
                         <input type="text" name="location" value={formData.location} onChange={handleChange} required placeholder="예: 예술의전당" />
@@ -214,7 +214,7 @@ function CreatePerformance() {
                     </div>
 
                     {sessions.map((session, index) => (
-                        <div key={index} style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', alignItems: 'center', background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '12px' }}>
+                        <div key={index} className="session-entry">
                             <span style={{ color: 'var(--text-secondary)', minWidth: '30px', fontWeight: '600' }}>#{index + 1}</span>
                             <input
                                 type="date"
@@ -232,7 +232,15 @@ function CreatePerformance() {
                                 <button
                                     type="button"
                                     onClick={() => removeSession(index)}
-                                    style={{ background: '#ff6b6b', border: 'none', padding: '0.5rem', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
+                                    style={{
+                                        background: '#ffefef',
+                                        color: '#e74c3c',
+                                        border: '1px solid #ffcfcc',
+                                        padding: '0.6rem 1rem',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontWeight: '600'
+                                    }}
                                 >
                                     삭제
                                 </button>
@@ -247,6 +255,38 @@ function CreatePerformance() {
                     </button>
                 </div>
             </form>
+            <style>{`
+                .admin-form-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 1.5rem;
+                }
+                .session-entry {
+                    display: flex;
+                    gap: 1rem;
+                    margin-bottom: 1rem;
+                    align-items: center;
+                    background: var(--bg-secondary);
+                    padding: 1.25rem;
+                    border-radius: 12px;
+                }
+                @media (max-width: 768px) {
+                    .admin-form-grid {
+                        grid-template-columns: 1fr;
+                        gap: 1rem;
+                    }
+                    .session-entry {
+                        flex-direction: column;
+                        align-items: stretch;
+                        gap: 0.8rem;
+                        padding: 1rem;
+                    }
+                    .session-entry > input {
+                        width: 100%;
+                        box-sizing: border-box;
+                    }
+                }
+            `}</style>
         </div>
     );
 }

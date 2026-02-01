@@ -175,10 +175,10 @@ function ReservationStatus() {
                         const perfRes = getResForPerf(perf.id);
                         const booked = getBookedCount(perf.id);
                         return (
-                            <div key={perf.id} className="booking-card" style={{ padding: '1.5rem', width: '95%', maxWidth: 'none', margin: '0 auto' }}>
-                                <div style={{ borderBottom: '1px solid #eee', paddingBottom: '1rem', marginBottom: collapsedPerfs[perf.id] ? 0 : '1rem' }}>
+                            <div key={perf.id} className="booking-card admin-booking-group" style={{ padding: '1.5rem', maxWidth: 'none', margin: '0 auto' }}>
+                                <div className="admin-card-header" style={{ borderBottom: '1px solid #eee', paddingBottom: '1rem', marginBottom: collapsedPerfs[perf.id] ? 0 : '1rem' }}>
                                     {/* Row 1: Title and Stats */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                    <div className="admin-header-row">
                                         <div>
                                             <h3 style={{ margin: 0, color: 'var(--accent-color)', marginBottom: '0.4rem' }}>{perf.title}</h3>
                                             <p style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>{perf.date_range}</p>
@@ -190,15 +190,15 @@ function ReservationStatus() {
                                     </div>
 
                                     {/* Row 2: Actions (Search, Add, Toggle) */}
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
+                                    <div className="admin-actions-row">
                                         {!collapsedPerfs[perf.id] && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                                                 <input
                                                     type="text"
                                                     placeholder="예매자명 또는 연락처..."
                                                     value={searchTerms[perf.id] || ''}
                                                     onChange={(e) => handleSearchChange(perf.id, e.target.value)}
-                                                    style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', borderRadius: '8px', border: '1px solid #eee', background: '#f8f9fa', width: '200px' }}
+                                                    style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', borderRadius: '8px', border: '1px solid #eee', background: '#f8f9fa', width: '200px', flex: '1 1 200px' }}
                                                 />
                                                 <button
                                                     onClick={() => {
@@ -207,7 +207,7 @@ function ReservationStatus() {
                                                             setManualForm(p => ({ ...p, date: perf.sessions[0].date, time: perf.sessions[0].time }));
                                                         }
                                                     }}
-                                                    style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', background: 'var(--accent-color)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                                    style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', background: 'var(--accent-color)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', flex: '1 1 auto' }}
                                                 >
                                                     + 수동 예약
                                                 </button>
@@ -234,9 +234,8 @@ function ReservationStatus() {
 
                                 {!collapsedPerfs[perf.id] && (
                                     <>
-
                                         {showAddForm === perf.id && (
-                                            <div style={{ background: '#fcfcfc', padding: '1.5rem', border: '1px solid #ddd', borderRadius: '8px', marginBottom: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr 2fr 0.7fr 1fr', gap: '1rem', alignItems: 'flex-end' }}>
+                                            <div className="manual-form-grid" style={{ background: '#fcfcfc', padding: '1.5rem', border: '1px solid #ddd', borderRadius: '8px', marginBottom: '1.5rem' }}>
                                                 <div>
                                                     <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '0.3rem' }}>성함</label>
                                                     <input type="text" value={manualForm.name} onChange={(e) => setManualForm(p => ({ ...p, name: e.target.value }))} style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }} />
@@ -280,8 +279,7 @@ function ReservationStatus() {
                                             </div>
                                         )}
 
-
-                                        <div className="table-container" style={{ marginTop: 0, boxShadow: 'none', border: 'none' }}>
+                                        <div className="table-container desktop-only">
                                             <table>
                                                 <thead>
                                                     <tr>
@@ -327,16 +325,67 @@ function ReservationStatus() {
                                                             </td>
                                                         </tr>
                                                     ))}
-                                                    {perfRes.length === 0 && (
-                                                        <tr>
-                                                            <td colSpan="6" style={{ textAlign: 'center', color: '#888', padding: '2rem' }}>
-                                                                {searchTerms[perf.id] ? '검색 결과가 없습니다.' : '예약 내역이 없습니다.'}
-                                                            </td>
-                                                        </tr>
-                                                    )}
                                                 </tbody>
                                             </table>
                                         </div>
+
+                                        {/* Mobile Card View */}
+                                        <div className="mobile-only" style={{ display: 'grid', gap: '0.8rem' }}>
+                                            {perfRes.map(res => (
+                                                <div key={res.id} style={{
+                                                    background: '#fff',
+                                                    padding: '1.2rem',
+                                                    borderRadius: '12px',
+                                                    border: '1px solid #eee',
+                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                                                }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+                                                        <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{res.name}</span>
+                                                        <span style={{
+                                                            padding: '0.2rem 0.6rem',
+                                                            background: 'var(--bg-secondary)',
+                                                            borderRadius: '6px',
+                                                            fontSize: '0.8rem',
+                                                            color: 'var(--text-secondary)'
+                                                        }}>
+                                                            {(() => {
+                                                                const sessions = Array.isArray(perf.sessions) ? perf.sessions : [];
+                                                                const index = sessions.findIndex(s => s.date === res.date && s.time === res.time);
+                                                                const match = res.time?.match(/#(\d+)/);
+                                                                if (match) return `${match[1]}회차`;
+                                                                return index !== -1 ? `${index + 1}회차` : res.time;
+                                                            })()}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1rem' }}>
+                                                        <p style={{ margin: '0.2rem 0' }}>📱 {res.phone}</p>
+                                                        <p style={{ margin: '0.2rem 0' }}>🎟️ {res.tickets}매 ({(res.total_price || 0).toLocaleString()}원)</p>
+                                                        <p style={{ margin: '0.2rem 0', fontSize: '0.8rem', opacity: 0.8 }}>🕒 {new Date(res.created_at).toLocaleString()}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleDeleteReservation(res.id)}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '0.6rem',
+                                                            background: '#fff',
+                                                            color: '#e74c3c',
+                                                            border: '1px solid #ffcfcc',
+                                                            borderRadius: '8px',
+                                                            fontSize: '0.9rem',
+                                                            fontWeight: '600'
+                                                        }}
+                                                    >
+                                                        예약 취소
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {perfRes.length === 0 && (
+                                            <div style={{ textAlign: 'center', color: '#888', padding: '3rem 1rem', background: '#fafafa', borderRadius: '12px', border: '1px dashed #ddd' }}>
+                                                {searchTerms[perf.id] ? '검색 결과가 없습니다.' : '예약 내역이 없습니다.'}
+                                            </div>
+                                        )}
                                     </>
                                 )}
                             </div>
@@ -344,6 +393,51 @@ function ReservationStatus() {
                     })}
                 </div>
             )}
+
+            <style>{`
+                .admin-booking-group {
+                    width: 95%;
+                }
+                @media (max-width: 768px) {
+                    .admin-booking-group {
+                        width: 85%;
+                    }
+                    .desktop-only { display: none !important; }
+                    .mobile-only { display: block !important; }
+                    
+                    .admin-header-row {
+                        flex-direction: column;
+                        align-items: flex-start !important;
+                        gap: 1rem;
+                    }
+                    .admin-header-row > div:last-child {
+                        text-align: left !important;
+                        width: 100%;
+                        padding-top: 0.5rem;
+                        border-top: 1px dashed #eee;
+                    }
+                    .admin-actions-row {
+                        justify-content: flex-start !important;
+                        flex-direction: column;
+                        align-items: stretch !important;
+                    }
+                    .admin-actions-row > div {
+                        width: 100%;
+                    }
+                    .admin-actions-row input {
+                        width: 100% !important;
+                    }
+                    .manual-form-grid {
+                        grid-template-columns: 1fr !important;
+                        padding: 1rem !important;
+                    }
+                }
+                @media (min-width: 769px) {
+                    .mobile-only { display: none !important; }
+                }
+
+                .mobile-only { display: none; }
+            `}</style>
         </div>
     );
 }
