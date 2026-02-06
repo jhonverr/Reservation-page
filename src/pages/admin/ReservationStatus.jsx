@@ -86,6 +86,22 @@ function ReservationStatus() {
         }
     };
 
+    const handleTogglePayment = async (resId, currentStatus) => {
+        const { error } = await supabase
+            .from('reservations')
+            .update({ is_paid: !currentStatus })
+            .eq('id', resId);
+
+        if (error) {
+            alert('결제 상태 업데이트 실패: ' + error.message);
+        } else {
+            // Update local state for immediate feedback without refetching all
+            setReservations(prev => prev.map(res =>
+                res.id === resId ? { ...res, is_paid: !currentStatus } : res
+            ));
+        }
+    };
+
     const handleAddReservation = async (perfId) => {
         if (!manualForm.name || !manualForm.phone || !manualForm.date || !manualForm.time) {
             alert('모든 정보를 입력해주세요.');
@@ -130,14 +146,24 @@ function ReservationStatus() {
 
     const getResForPerf = (perfId) => {
         const term = (searchTerms[perfId] || '').toLowerCase();
-        return reservations.filter(r => {
-            if (r.performance_id !== perfId) return false;
-            if (!term) return true;
-            return (
-                r.name.toLowerCase().includes(term) ||
-                r.phone.includes(term)
-            );
-        });
+        return reservations
+            .filter(r => {
+                if (r.performance_id !== perfId) return false;
+                if (!term) return true;
+                return (
+                    r.name.toLowerCase().includes(term) ||
+                    r.phone.includes(term)
+                );
+            })
+            .sort((a, b) => {
+                // Sorting: is_paid: false (0) comes before is_paid: true (1)
+                // We want unpaid (false) at the top, paid (true) at the bottom.
+                if (!!a.is_paid === !!b.is_paid) {
+                    // If same payment status, sort by created_at descending
+                    return new Date(b.created_at) - new Date(a.created_at);
+                }
+                return a.is_paid ? 1 : -1;
+            });
     };
 
     const getBookedCount = (perfId) => reservations.filter(r => r.performance_id === perfId).reduce((sum, r) => sum + r.tickets, 0);
@@ -288,6 +314,7 @@ function ReservationStatus() {
                                                         <th>연락처</th>
                                                         <th>티켓</th>
                                                         <th>예매일시</th>
+                                                        <th style={{ width: '60px', textAlign: 'center' }}>결제</th>
                                                         <th style={{ width: '80px' }}>관리</th>
                                                     </tr>
                                                 </thead>
@@ -317,6 +344,14 @@ function ReservationStatus() {
                                                             <td>{res.phone}</td>
                                                             <td>{res.tickets}매</td>
                                                             <td>{new Date(res.created_at).toLocaleString()}</td>
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={!!res.is_paid}
+                                                                    onChange={() => handleTogglePayment(res.id, res.is_paid)}
+                                                                    style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                                                                />
+                                                            </td>
                                                             <td>
                                                                 <button
                                                                     onClick={() => handleDeleteReservation(res.id)}
@@ -362,21 +397,54 @@ function ReservationStatus() {
                                                         <p style={{ margin: '0.2rem 0' }}>🎟️ {res.tickets}매 ({(res.total_price || 0).toLocaleString()}원)</p>
                                                         <p style={{ margin: '0.2rem 0', fontSize: '0.8rem', opacity: 0.8 }}>🕒 {new Date(res.created_at).toLocaleString()}</p>
                                                     </div>
-                                                    <button
-                                                        onClick={() => handleDeleteReservation(res.id)}
-                                                        style={{
-                                                            width: '100%',
-                                                            padding: '0.6rem',
-                                                            background: '#fff',
-                                                            color: '#e74c3c',
-                                                            border: '1px solid #ffcfcc',
-                                                            borderRadius: '8px',
-                                                            fontSize: '0.9rem',
-                                                            fontWeight: '600'
-                                                        }}
-                                                    >
-                                                        예약 취소
-                                                    </button>
+                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                        <div
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleTogglePayment(res.id, res.is_paid);
+                                                            }}
+                                                            style={{
+                                                                flex: 1,
+                                                                padding: '0.6rem',
+                                                                background: res.is_paid ? '#2ecc71' : '#fff',
+                                                                color: res.is_paid ? '#fff' : '#2ecc71',
+                                                                border: '1px solid #2ecc71',
+                                                                borderRadius: '8px',
+                                                                fontSize: '0.9rem',
+                                                                fontWeight: '600',
+                                                                textAlign: 'center',
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                flexDirection: 'column',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                gap: '0.3rem'
+                                                            }}
+                                                        >
+                                                            <span>{res.is_paid ? '결제 완료' : '결제 대기'}</span>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!res.is_paid}
+                                                                readOnly
+                                                                style={{ pointerEvents: 'none', width: '18px', height: '18px', margin: 0 }}
+                                                            />
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleDeleteReservation(res.id)}
+                                                            style={{
+                                                                flex: 1,
+                                                                padding: '0.6rem',
+                                                                background: '#fff',
+                                                                color: '#e74c3c',
+                                                                border: '1px solid #ffcfcc',
+                                                                borderRadius: '8px',
+                                                                fontSize: '0.9rem',
+                                                                fontWeight: '600'
+                                                            }}
+                                                        >
+                                                            예약 취소
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
@@ -387,12 +455,14 @@ function ReservationStatus() {
                                             </div>
                                         )}
                                     </>
-                                )}
+                                )
+                                }
                             </div>
                         );
                     })}
                 </div>
-            )}
+            )
+            }
 
             <style>{`
                 .admin-booking-group {
@@ -438,7 +508,7 @@ function ReservationStatus() {
 
                 .mobile-only { display: none; }
             `}</style>
-        </div>
+        </div >
     );
 }
 
