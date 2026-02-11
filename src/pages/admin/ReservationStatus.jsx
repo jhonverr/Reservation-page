@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { isSessionEnded } from '../../utils/date';
+import { formatPhone } from '../../utils/format';
 
 function ReservationStatus() {
     const [performances, setPerformances] = useState([]);
@@ -420,7 +421,7 @@ function ReservationStatus() {
                                                                             {group.reservations.map(res => (
                                                                                 <tr key={res.id}>
                                                                                     <td style={{ paddingLeft: '1.5rem', fontWeight: 'bold' }}>{res.name}</td>
-                                                                                    <td>{res.phone}</td>
+                                                                                    <td>{formatPhone(res.phone)}</td>
                                                                                     <td>{res.tickets}매</td>
                                                                                     <td>{new Date(res.created_at).toLocaleString()}</td>
                                                                                     <td style={{ textAlign: 'center' }}>
@@ -463,7 +464,7 @@ function ReservationStatus() {
                                                                                 <span style={{ fontSize: '0.9rem', color: '#666' }}>{res.tickets}매</span>
                                                                             </div>
                                                                             <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.8rem' }}>
-                                                                                <p style={{ margin: '0.2rem 0' }}>📱 {res.phone}</p>
+                                                                                <p style={{ margin: '0.2rem 0' }}>📱 {formatPhone(res.phone)}</p>
                                                                                 <p style={{ margin: '0.2rem 0' }}>🕒 {new Date(res.created_at).toLocaleString()}</p>
                                                                             </div>
 
