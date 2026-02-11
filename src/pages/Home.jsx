@@ -120,20 +120,12 @@ function Home() {
             if (data.length > 0) {
                 // Find first session that is NOT ended
                 const firstActive = data.find(s => !isSessionEnded(perf, s));
-                if (firstActive) {
-                    setFormData(prev => ({
-                        ...prev,
-                        date: firstActive.date,
-                        time: firstActive.time
-                    }));
-                } else {
-                    // All sessions ended or none exist
-                    setFormData(prev => ({
-                        ...prev,
-                        date: '',
-                        time: ''
-                    }));
-                }
+
+                setFormData(prev => ({
+                    ...prev,
+                    date: firstActive ? firstActive.date : data[0].date,
+                    time: firstActive ? firstActive.time : ''
+                }));
             }
         }
     }
