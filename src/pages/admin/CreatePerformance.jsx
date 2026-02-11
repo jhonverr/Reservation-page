@@ -168,7 +168,7 @@ function CreatePerformance() {
                     </div>
                     <div className="form-group">
                         <label>관람 등급</label>
-                        <select name="ageRating" value={formData.ageRating} onChange={handleChange} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', background: '#fff', border: '1px solid #ddd', color: 'var(--text-primary)' }}>
+                        <select name="ageRating" value={formData.ageRating} onChange={handleChange} required>
                             <option value="all">전체 관람가</option>
                             <option value="15">15세 이상 관람가</option>
                             <option value="19">19세 이상 관람가</option>
@@ -182,8 +182,8 @@ function CreatePerformance() {
 
                 {/* 4. 일정 정보 */}
                 <div className="form-section" style={{ marginTop: '2rem' }}>
-                    <h3>공연 기간</h3>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <h3 style={{ marginBottom: '1rem' }}>공연 기간</h3>
+                    <div className="date-range-wrapper">
                         <input
                             type="date"
                             name="startDate"
@@ -261,6 +261,15 @@ function CreatePerformance() {
                     grid-template-columns: 1fr 1fr;
                     gap: 1.5rem;
                 }
+                .date-range-wrapper {
+                    display: flex;
+                    gap: 0.5rem;
+                    align-items: center;
+                }
+                .date-range-wrapper > input {
+                    flex: 1;
+                    min-width: 0;
+                }
                 .session-entry {
                     display: flex;
                     gap: 1rem;
@@ -284,6 +293,11 @@ function CreatePerformance() {
                     .session-entry > input {
                         width: 100%;
                         box-sizing: border-box;
+                    }
+                }
+                @media (max-width: 480px) {
+                    .date-range-wrapper {
+                        gap: 0.3rem;
                     }
                 }
             `}</style>
