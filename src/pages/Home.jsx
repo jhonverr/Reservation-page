@@ -579,7 +579,8 @@ function Home() {
                                         <span>⏱️</span> <b>공연 시간:</b> {selectedPerf.duration}
                                     </p>
                                     <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <span>🔞</span> <b>관람 등급:</b> {selectedPerf.age_rating === 'all' ? '전체 관람가' : `${selectedPerf.age_rating}세 이상 관람가`}
+                                        <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>👥</span>
+                                        <span><b>관람 등급:</b> {selectedPerf.age_rating === 'all' ? '전체 관람가' : `${selectedPerf.age_rating}세 이상 관람가`}</span>
                                     </p>
                                 </div>
                                 <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', whiteSpace: 'pre-line', marginBottom: '2rem' }}>{selectedPerf.description}</p>

@@ -250,6 +250,20 @@ body {
     padding: 0.4rem 0.8rem !important;
     font-size: 1rem !important;
   }
+
+  /* Mobile-specific input optimizations */
+  select {
+    font-size: 1rem;
+    padding: 0.9rem 3rem 0.9rem 1rem;
+    background-size: 1.4em;
+  }
+
+  input,
+  button,
+  select {
+    min-height: 44px;
+    /* Touch target optimization */
+  }
 }
 
 .payment-box {
