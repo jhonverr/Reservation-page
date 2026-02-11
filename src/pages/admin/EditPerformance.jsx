@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import TimePicker from '../../components/TimePicker';
+import LocationPicker from '../../components/LocationPicker';
 import '../../App.css';
 
 function EditPerformance() {
@@ -20,7 +21,9 @@ function EditPerformance() {
         price: '',
         duration: '',
         ageRating: 'all',
-        totalSeats: ''
+        totalSeats: '',
+        latitude: null,
+        longitude: null
     });
 
     const [posterFile, setPosterFile] = useState(null);
@@ -54,7 +57,9 @@ function EditPerformance() {
                 price: perf.price.toString(),
                 duration: perf.duration,
                 ageRating: perf.age_rating,
-                totalSeats: perf.total_seats?.toString() || '0'
+                totalSeats: perf.total_seats?.toString() || '0',
+                latitude: perf.latitude,
+                longitude: perf.longitude
             });
             setExistingPosterUrl(perf.poster_url);
 
@@ -86,6 +91,10 @@ function EditPerformance() {
         const newSessions = [...sessions];
         newSessions[index][field] = value;
         setSessions(newSessions);
+    };
+
+    const handleLocationSelect = ({ lat, lng }) => {
+        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
     };
 
     const addSession = () => {
@@ -135,7 +144,9 @@ function EditPerformance() {
                     duration: formData.duration,
                     age_rating: formData.ageRating,
                     total_seats: parseInt(formData.totalSeats) || 0,
-                    poster_url: posterUrl
+                    poster_url: posterUrl,
+                    latitude: formData.latitude,
+                    longitude: formData.longitude
                 })
                 .eq('id', id);
 
@@ -247,13 +258,23 @@ function EditPerformance() {
 
                 <div className="admin-form-grid">
                     <div className="form-group">
-                        <label>공연 장소</label>
+                        <label>공연 장소 (텍스트)</label>
                         <input type="text" name="location" value={formData.location} onChange={handleChange} required />
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                            * 왼쪽에는 장소명을 입력하고, 오른쪽 지도에서 정확한 위치를 선택해주세요.
+                        </p>
                     </div>
                     <div className="form-group">
-                        <label>티켓 가격 (원)</label>
-                        <input type="number" name="price" value={formData.price} onChange={handleChange} required />
+                        <label>지도 위치 설정</label>
+                        {!fetching && (
+                            <LocationPicker
+                                initLat={formData.latitude}
+                                initLng={formData.longitude}
+                                onLocationSelect={handleLocationSelect}
+                            />
+                        )}
                     </div>
+
                     <div className="form-group">
                         <label>공연 길이</label>
                         <input type="text" name="duration" value={formData.duration} onChange={handleChange} required />
@@ -266,9 +287,14 @@ function EditPerformance() {
                             <option value="19">19세 이상 관람가</option>
                         </select>
                     </div>
+
                     <div className="form-group">
                         <label>총 좌석수</label>
                         <input type="number" name="totalSeats" value={formData.totalSeats} onChange={handleChange} required />
+                    </div>
+                    <div className="form-group">
+                        <label>티켓 가격 (원)</label>
+                        <input type="number" name="price" value={formData.price} onChange={handleChange} required />
                     </div>
                 </div>
 

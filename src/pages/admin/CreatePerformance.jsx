@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import TimePicker from '../../components/TimePicker';
+import LocationPicker from '../../components/LocationPicker';
 import '../../App.css';
 
 function CreatePerformance() {
@@ -18,7 +19,9 @@ function CreatePerformance() {
         price: '',
         duration: '',
         ageRating: 'all', // all, 15, 19
-        totalSeats: ''
+        totalSeats: '',
+        latitude: null,
+        longitude: null
     });
 
     const [posterFile, setPosterFile] = useState(null);
@@ -35,6 +38,10 @@ function CreatePerformance() {
         const newSessions = [...sessions];
         newSessions[index][field] = value;
         setSessions(newSessions);
+    };
+
+    const handleLocationSelect = ({ lat, lng }) => {
+        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
     };
 
     const addSession = () => {
@@ -87,7 +94,9 @@ function CreatePerformance() {
                     duration: formData.duration,
                     age_rating: formData.ageRating,
                     total_seats: parseInt(formData.totalSeats) || 0,
-                    poster_url: posterUrl
+                    poster_url: posterUrl,
+                    latitude: formData.latitude,
+                    longitude: formData.longitude
                 }])
                 .select()
                 .single();
@@ -155,13 +164,17 @@ function CreatePerformance() {
                 {/* 3. 상세 정보 */}
                 <div className="admin-form-grid">
                     <div className="form-group">
-                        <label>공연 장소</label>
+                        <label>공연 장소 (텍스트)</label>
                         <input type="text" name="location" value={formData.location} onChange={handleChange} required placeholder="예: 예술의전당" />
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                            * 왼쪽에는 장소명을 입력하고, 오른쪽 지도에서 정확한 위치를 선택해주세요.
+                        </p>
                     </div>
                     <div className="form-group">
-                        <label>티켓 가격 (원)</label>
-                        <input type="number" name="price" value={formData.price} onChange={handleChange} required placeholder="예: 10000" />
+                        <label>지도 위치 설정</label>
+                        <LocationPicker onLocationSelect={handleLocationSelect} />
                     </div>
+
                     <div className="form-group">
                         <label>공연 길이 (예: 120분)</label>
                         <input type="text" name="duration" value={formData.duration} onChange={handleChange} required placeholder="예: 120분 (인터미션 15분)" />
@@ -174,9 +187,14 @@ function CreatePerformance() {
                             <option value="19">19세 이상 관람가</option>
                         </select>
                     </div>
+
                     <div className="form-group">
                         <label>총 좌석수</label>
                         <input type="number" name="totalSeats" value={formData.totalSeats} onChange={handleChange} required placeholder="예: 100" />
+                    </div>
+                    <div className="form-group">
+                        <label>티켓 가격 (원)</label>
+                        <input type="number" name="price" value={formData.price} onChange={handleChange} required placeholder="예: 10000" />
                     </div>
                 </div>
 

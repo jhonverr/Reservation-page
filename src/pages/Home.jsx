@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import MapView from '../components/MapView';
 import '../App.css';
 
 function Home() {
@@ -584,6 +585,16 @@ function Home() {
                                     </p>
                                 </div>
                                 <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', whiteSpace: 'pre-line', marginBottom: '2rem' }}>{selectedPerf.description}</p>
+
+                                {selectedPerf.latitude && selectedPerf.longitude && (
+                                    <div style={{ marginBottom: '2rem' }}>
+                                        <MapView
+                                            lat={selectedPerf.latitude}
+                                            lng={selectedPerf.longitude}
+                                            locationName={selectedPerf.location}
+                                        />
+                                    </div>
+                                )}
 
                                 <div style={{
                                     padding: '1.5rem',
