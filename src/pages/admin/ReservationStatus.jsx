@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { isSessionEnded } from '../../utils/date';
 
 function ReservationStatus() {
     const [performances, setPerformances] = useState([]);
@@ -7,6 +8,7 @@ function ReservationStatus() {
     const [searchTerms, setSearchTerms] = useState({}); // { perfId: 'searchTerm' }
     const [loading, setLoading] = useState(true);
     const [collapsedPerfs, setCollapsedPerfs] = useState({}); // { perfId: true/false }
+    const [collapsedSessions, setCollapsedSessions] = useState({}); // { sessionId: true/false }
 
     // Manual reservation form state
     const [showAddForm, setShowAddForm] = useState(null); // perfId
@@ -17,6 +19,8 @@ function ReservationStatus() {
         date: '',
         time: ''
     });
+
+
 
     useEffect(() => {
         fetchData();
@@ -51,20 +55,31 @@ function ReservationStatus() {
             });
             setPerformances(sortedPerf);
 
-            // Initialize collapsed state: collapse ended performances, expand ongoing ones
+            // Initialize collapsed state: collapse ended performances & sessions
             const now = new Date();
-            const initialCollapsed = {};
+            const initialCollapsedPerfs = {};
+            const initialCollapsedSessions = {};
+
             sortedPerf.forEach(perf => {
+                // Collapse ended performances
                 const endDateStr = (perf.date_range || '').split(' - ')[1];
                 if (endDateStr) {
                     const endDate = new Date(endDateStr.replace(/\./g, '-'));
-                    // If performance has ended, collapse it
-                    initialCollapsed[perf.id] = endDate < now;
+                    initialCollapsedPerfs[perf.id] = endDate < now;
                 } else {
-                    initialCollapsed[perf.id] = false;
+                    initialCollapsedPerfs[perf.id] = false;
                 }
+
+                // Collapse ended sessions
+                perf.sessions.forEach((session, idx) => {
+                    if (isSessionEnded(perf, session)) {
+                        const sessionKey = `${session.date}-${session.time}-${idx}`;
+                        initialCollapsedSessions[sessionKey] = true;
+                    }
+                });
             });
-            setCollapsedPerfs(initialCollapsed);
+            setCollapsedPerfs(initialCollapsedPerfs);
+            setCollapsedSessions(initialCollapsedSessions);
         }
         if (resData) setReservations(resData);
         setLoading(false);
@@ -95,7 +110,6 @@ function ReservationStatus() {
         if (error) {
             alert('결제 상태 업데이트 실패: ' + error.message);
         } else {
-            // Update local state for immediate feedback without refetching all
             setReservations(prev => prev.map(res =>
                 res.id === resId ? { ...res, is_paid: !currentStatus } : res
             ));
@@ -108,7 +122,6 @@ function ReservationStatus() {
             return;
         }
 
-        // Get performance price
         const { data: perfData, error: perfError } = await supabase
             .from('performances')
             .select('price')
@@ -144,29 +157,67 @@ function ReservationStatus() {
         }
     };
 
-    const getResForPerf = (perfId) => {
-        const term = (searchTerms[perfId] || '').toLowerCase();
-        return reservations
-            .filter(r => {
-                if (r.performance_id !== perfId) return false;
+    // Helper to group reservations by session
+    const getSessionGroups = (perf) => {
+        const term = (searchTerms[perf.id] || '').toLowerCase();
+        const perfReservations = reservations.filter(r => r.performance_id === perf.id);
+
+        // Find reservations that don't match known sessions (shouldn't happen often, but good for safety)
+        const unknownSessionRes = perfReservations.filter(r =>
+            !perf.sessions.some(s => s.date === r.date && s.time === r.time)
+        );
+
+        const groups = perf.sessions.map((session, idx) => {
+            const sessionRes = perfReservations.filter(r => r.date === session.date && r.time === session.time);
+
+            // Filter by search term
+            const filteredRes = sessionRes.filter(r => {
                 if (!term) return true;
-                return (
-                    r.name.toLowerCase().includes(term) ||
-                    r.phone.includes(term)
-                );
-            })
-            .sort((a, b) => {
-                // Sorting: is_paid: false (0) comes before is_paid: true (1)
-                // We want unpaid (false) at the top, paid (true) at the bottom.
-                if (!!a.is_paid === !!b.is_paid) {
-                    // If same payment status, sort by created_at descending
-                    return new Date(b.created_at) - new Date(a.created_at);
-                }
-                return a.is_paid ? 1 : -1;
+                return r.name.toLowerCase().includes(term) || r.phone.includes(term);
             });
+
+            // Calculate stats
+            const booked = sessionRes.reduce((sum, r) => sum + r.tickets, 0);
+            const isEnded = isSessionEnded(perf, session);
+
+            return {
+                session,
+                originalIdx: idx,
+                reservations: filteredRes,
+                booked,
+                total: perf.total_seats,
+                isEnded
+            };
+        });
+
+        // Sort: Active sessions first, then Ended sessions
+
+        groups.sort((a, b) => {
+            if (a.isEnded === b.isEnded) return 0;
+            return a.isEnded ? 1 : -1;
+        });
+
+
+        // Loop unknown reservations if any matches search
+        const filteredUnknown = unknownSessionRes.filter(r => {
+            if (!term) return true;
+            return r.name.toLowerCase().includes(term) || r.phone.includes(term);
+        });
+
+        if (filteredUnknown.length > 0) {
+            groups.push({
+                session: { date: '기타', time: '설정되지 않은 회차' },
+                originalIdx: -1,
+                reservations: filteredUnknown,
+                booked: filteredUnknown.reduce((sum, r) => sum + r.tickets, 0),
+                total: 0,
+                isEnded: true
+            });
+        }
+
+        return groups;
     };
 
-    const getBookedCount = (perfId) => reservations.filter(r => r.performance_id === perfId).reduce((sum, r) => sum + r.tickets, 0);
 
     const handleSearchChange = (perfId, value) => {
         setSearchTerms(prev => ({ ...prev, [perfId]: value }));
@@ -198,24 +249,22 @@ function ReservationStatus() {
             ) : (
                 <div style={{ display: 'grid', gap: '2rem' }}>
                     {performances.map(perf => {
-                        const perfRes = getResForPerf(perf.id);
-                        const booked = getBookedCount(perf.id);
+                        const sessionGroups = getSessionGroups(perf);
+                        const totalBooked = reservations.filter(r => r.performance_id === perf.id).reduce((sum, r) => sum + r.tickets, 0);
+
                         return (
                             <div key={perf.id} className="booking-card admin-booking-group" style={{ padding: '1.5rem', maxWidth: 'none', margin: '0 auto' }}>
                                 <div className="admin-card-header" style={{ borderBottom: '1px solid #eee', paddingBottom: '1rem', marginBottom: collapsedPerfs[perf.id] ? 0 : '1rem' }}>
-                                    {/* Row 1: Title and Stats */}
                                     <div className="admin-header-row">
                                         <div>
                                             <h3 style={{ margin: 0, color: 'var(--accent-color)', marginBottom: '0.4rem' }}>{perf.title}</h3>
                                             <p style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>{perf.date_range}</p>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
-                                            <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{booked} / {perf.total_seats}석</span>
-                                            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>예약율: {perf.total_seats > 0 ? Math.round((booked / perf.total_seats) * 100) : 0}%</p>
+                                            <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>총 {totalBooked}매 예매</span>
                                         </div>
                                     </div>
 
-                                    {/* Row 2: Actions (Search, Add, Toggle) */}
                                     <div className="admin-actions-row">
                                         {!collapsedPerfs[perf.id] && (
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
@@ -260,8 +309,10 @@ function ReservationStatus() {
 
                                 {!collapsedPerfs[perf.id] && (
                                     <>
+                                        {/* Manual Add Form */}
                                         {showAddForm === perf.id && (
                                             <div className="manual-form-grid" style={{ background: '#fcfcfc', padding: '1.5rem', border: '1px solid #ddd', borderRadius: '8px', marginBottom: '1.5rem' }}>
+                                                {/* ... same as before, simplified for brevity in this logical block ... */}
                                                 <div>
                                                     <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '0.3rem' }}>성함</label>
                                                     <input type="text" value={manualForm.name} onChange={(e) => setManualForm(p => ({ ...p, name: e.target.value }))} style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }} />
@@ -305,164 +356,144 @@ function ReservationStatus() {
                                             </div>
                                         )}
 
-                                        <div className="table-container desktop-only">
-                                            <table>
-                                                <thead>
-                                                    <tr>
-                                                        <th>예매자</th>
-                                                        <th>회차</th>
-                                                        <th>연락처</th>
-                                                        <th>티켓</th>
-                                                        <th>예매일시</th>
-                                                        <th style={{ width: '60px', textAlign: 'center' }}>결제</th>
-                                                        <th style={{ width: '80px' }}>관리</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {perfRes.map(res => (
-                                                        <tr key={res.id}>
-                                                            <td style={{ fontWeight: 'bold' }}>{res.name}</td>
-                                                            <td>
-                                                                {(() => {
-                                                                    const sessions = Array.isArray(perf.sessions) ? perf.sessions : [];
-                                                                    const index = sessions.findIndex(s => s.date === res.date && s.time === res.time);
+                                        {/* Session Groups */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            {sessionGroups.map((group) => {
+                                                const sessionKey = `${group.session.date}-${group.session.time}-${group.originalIdx}`;
+                                                // Only show if it matches search or no search
+                                                if (searchTerms[perf.id] && group.reservations.length === 0) return null;
 
-                                                                    // Try to extract #number from res.time first
-                                                                    const match = res.time?.match(/#(\d+)/);
-                                                                    if (match) return `${match[1]}회차`;
+                                                const occupancyRate = group.total > 0 ? Math.round((group.booked / group.total) * 100) : 0;
+                                                const isExpanded = !collapsedSessions[sessionKey] || (!!searchTerms[perf.id] && group.reservations.length > 0);
 
-                                                                    // If not in res.time, maybe it's in the matched session's time
-                                                                    if (index !== -1) {
-                                                                        const sessionTimeMatch = sessions[index].time?.match(/#(\d+)/);
-                                                                        if (sessionTimeMatch) return `${sessionTimeMatch[1]}회차`;
-                                                                        return `${index + 1}회차`;
-                                                                    }
-
-                                                                    return `${res.date} (${res.time})`;
-                                                                })()}
-                                                            </td>
-                                                            <td>{res.phone}</td>
-                                                            <td>{res.tickets}매</td>
-                                                            <td>{new Date(res.created_at).toLocaleString()}</td>
-                                                            <td style={{ textAlign: 'center' }}>
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={!!res.is_paid}
-                                                                    onChange={() => handleTogglePayment(res.id, res.is_paid)}
-                                                                    style={{ cursor: 'pointer', width: '18px', height: '18px' }}
-                                                                />
-                                                            </td>
-                                                            <td>
-                                                                <button
-                                                                    onClick={() => handleDeleteReservation(res.id)}
-                                                                    style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
-                                                                >취소</button>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                        {/* Mobile Card View */}
-                                        <div className="mobile-only" style={{ display: 'grid', gap: '0.8rem' }}>
-                                            {perfRes.map(res => (
-                                                <div key={res.id} style={{
-                                                    background: '#fff',
-                                                    padding: '1.2rem',
-                                                    borderRadius: '12px',
-                                                    border: '1px solid #eee',
-                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                                                }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
-                                                        <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{res.name}</span>
-                                                        <span style={{
-                                                            padding: '0.2rem 0.6rem',
-                                                            background: 'var(--bg-secondary)',
-                                                            borderRadius: '6px',
-                                                            fontSize: '0.8rem',
-                                                            color: 'var(--text-secondary)'
-                                                        }}>
-                                                            {(() => {
-                                                                const sessions = Array.isArray(perf.sessions) ? perf.sessions : [];
-                                                                const index = sessions.findIndex(s => s.date === res.date && s.time === res.time);
-                                                                const match = res.time?.match(/#(\d+)/);
-                                                                if (match) return `${match[1]}회차`;
-                                                                return index !== -1 ? `${index + 1}회차` : res.time;
-                                                            })()}
-                                                        </span>
-                                                    </div>
-                                                    <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1rem' }}>
-                                                        <p style={{ margin: '0.2rem 0' }}>📱 {res.phone}</p>
-                                                        <p style={{ margin: '0.2rem 0' }}>🎟️ {res.tickets}매 ({(res.total_price || 0).toLocaleString()}원)</p>
-                                                        <p style={{ margin: '0.2rem 0', fontSize: '0.8rem', opacity: 0.8 }}>🕒 {new Date(res.created_at).toLocaleString()}</p>
-                                                    </div>
-                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                return (
+                                                    <div key={sessionKey} style={{ border: '1px solid #eee', borderRadius: '8px', overflow: 'hidden', opacity: group.isEnded ? 0.7 : 1 }}>
                                                         <div
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleTogglePayment(res.id, res.is_paid);
-                                                            }}
+                                                            onClick={() => setCollapsedSessions(prev => ({ ...prev, [sessionKey]: !prev[sessionKey] }))}
                                                             style={{
-                                                                flex: 1,
-                                                                padding: '0.6rem',
-                                                                background: res.is_paid ? '#2ecc71' : '#fff',
-                                                                color: res.is_paid ? '#fff' : '#2ecc71',
-                                                                border: '1px solid #2ecc71',
-                                                                borderRadius: '8px',
-                                                                fontSize: '0.9rem',
-                                                                fontWeight: '600',
-                                                                textAlign: 'center',
+                                                                padding: '1rem',
+                                                                background: group.isEnded ? '#f0f0f0' : '#fafafa',
                                                                 cursor: 'pointer',
                                                                 display: 'flex',
-                                                                flexDirection: 'column',
+                                                                justifyContent: 'space-between',
                                                                 alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                gap: '0.3rem'
+                                                                userSelect: 'none'
                                                             }}
                                                         >
-                                                            <span>{res.is_paid ? '결제 완료' : '결제 대기'}</span>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={!!res.is_paid}
-                                                                readOnly
-                                                                style={{ pointerEvents: 'none', width: '18px', height: '18px', margin: 0 }}
-                                                            />
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                {/* Session Number & Date/Time */}
+                                                                <span style={{ fontWeight: 'bold', fontSize: '1rem', color: group.isEnded ? '#888' : '#333' }}>
+                                                                    {group.originalIdx !== -1 ? `${group.originalIdx + 1}회차` : '기타 회차'}
+                                                                    {group.isEnded && <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: '#999', fontWeight: 'normal' }}>[종료]</span>}
+                                                                </span>
+                                                                <span style={{ fontSize: '0.9rem', color: group.isEnded ? '#aaa' : '#666', marginLeft: '0.2rem' }}>
+                                                                    ({group.session.date} {group.session.time})
+                                                                </span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                                <span style={{
+                                                                    fontSize: '0.9rem',
+                                                                    color: group.isEnded ? '#aaa' : (occupancyRate >= 100 ? '#e74c3c' : '#2ecc71'),
+                                                                    fontWeight: 'bold'
+                                                                }}>
+                                                                    {group.booked} / {group.total}석 ({occupancyRate}%)
+                                                                </span>
+                                                                <span style={{ fontSize: '0.8rem', color: '#999' }}>{isExpanded ? '▲' : '▼'}</span>
+                                                            </div>
                                                         </div>
-                                                        <button
-                                                            onClick={() => handleDeleteReservation(res.id)}
-                                                            style={{
-                                                                flex: 1,
-                                                                padding: '0.6rem',
-                                                                background: '#fff',
-                                                                color: '#e74c3c',
-                                                                border: '1px solid #ffcfcc',
-                                                                borderRadius: '8px',
-                                                                fontSize: '0.9rem',
-                                                                fontWeight: '600'
-                                                            }}
-                                                        >
-                                                            예약 취소
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
 
-                                        {perfRes.length === 0 && (
-                                            <div style={{ textAlign: 'center', color: '#888', padding: '3rem 1rem', background: '#fafafa', borderRadius: '12px', border: '1px dashed #ddd' }}>
-                                                {searchTerms[perf.id] ? '검색 결과가 없습니다.' : '예약 내역이 없습니다.'}
-                                            </div>
-                                        )}
+                                                        {isExpanded && (
+                                                            <div style={{ padding: '0', borderTop: '1px solid #eee' }}>
+                                                                <div className="table-container desktop-only">
+                                                                    <table style={{ margin: 0 }}>
+                                                                        <thead>
+                                                                            <tr style={{ background: '#fff' }}>
+                                                                                <th style={{ paddingLeft: '1.5rem' }}>예매자</th>
+                                                                                <th>연락처</th>
+                                                                                <th>티켓</th>
+                                                                                <th>예매일시</th>
+                                                                                <th style={{ width: '60px', textAlign: 'center' }}>결제</th>
+                                                                                <th style={{ width: '80px' }}>관리</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            {group.reservations.map(res => (
+                                                                                <tr key={res.id}>
+                                                                                    <td style={{ paddingLeft: '1.5rem', fontWeight: 'bold' }}>{res.name}</td>
+                                                                                    <td>{res.phone}</td>
+                                                                                    <td>{res.tickets}매</td>
+                                                                                    <td>{new Date(res.created_at).toLocaleString()}</td>
+                                                                                    <td style={{ textAlign: 'center' }}>
+                                                                                        <input
+                                                                                            type="checkbox"
+                                                                                            checked={!!res.is_paid}
+                                                                                            onChange={() => handleTogglePayment(res.id, res.is_paid)}
+                                                                                            style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                                                                                        />
+                                                                                    </td>
+                                                                                    <td>
+                                                                                        <button
+                                                                                            onClick={() => handleDeleteReservation(res.id)}
+                                                                                            style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+                                                                                        >취소</button>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))}
+                                                                            {group.reservations.length === 0 && (
+                                                                                <tr>
+                                                                                    <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>예약 내역이 없습니다.</td>
+                                                                                </tr>
+                                                                            )}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+
+                                                                {/* Mobile View */}
+                                                                <div className="mobile-only" style={{ padding: '1rem' }}>
+                                                                    {group.reservations.map(res => (
+                                                                        <div key={res.id} style={{
+                                                                            background: '#fff',
+                                                                            padding: '1rem',
+                                                                            borderRadius: '8px',
+                                                                            border: '1px solid #eee',
+                                                                            marginBottom: '0.8rem'
+                                                                        }}>
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                                                                <span style={{ fontWeight: 'bold' }}>{res.name}</span>
+                                                                                <span style={{ fontSize: '0.9rem', color: '#666' }}>{res.tickets}매</span>
+                                                                            </div>
+                                                                            <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.8rem' }}>
+                                                                                <p style={{ margin: '0.2rem 0' }}>📱 {res.phone}</p>
+                                                                                <p style={{ margin: '0.2rem 0' }}>🕒 {new Date(res.created_at).toLocaleString()}</p>
+                                                                            </div>
+
+                                                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                                                <div onClick={() => handleTogglePayment(res.id, res.is_paid)} style={{ flex: 1, padding: '0.5rem', textAlign: 'center', borderRadius: '4px', background: res.is_paid ? '#2ecc71' : '#fff', color: res.is_paid ? '#fff' : '#2ecc71', border: '1px solid #2ecc71', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                                                                    {res.is_paid ? '결제 완료' : '결제 대기'}
+                                                                                </div>
+                                                                                <div onClick={() => handleDeleteReservation(res.id)} style={{ flex: 1, padding: '0.5rem', textAlign: 'center', borderRadius: '4px', background: '#fff', color: '#e74c3c', border: '1px solid #e74c3c', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                                                                    취소
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                    {group.reservations.length === 0 && (
+                                                                        <div style={{ textAlign: 'center', color: '#999', padding: '1rem' }}>예약 내역이 없습니다.</div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </>
-                                )
-                                }
+                                )}
                             </div>
                         );
                     })}
                 </div>
-            )
-            }
+            )}
 
             <style>{`
                 .admin-booking-group {
@@ -470,7 +501,8 @@ function ReservationStatus() {
                 }
                 @media (max-width: 768px) {
                     .admin-booking-group {
-                        width: 85%;
+                        width: 90%;
+                        padding: 1rem !important;
                     }
                     .desktop-only { display: none !important; }
                     .mobile-only { display: block !important; }
@@ -508,7 +540,7 @@ function ReservationStatus() {
 
                 .mobile-only { display: none; }
             `}</style>
-        </div >
+        </div>
     );
 }
 

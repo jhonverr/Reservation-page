@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import PerformanceCard from '../components/PerformanceCard';
+import ReservationItem from '../components/ReservationItem';
 import MapView from '../components/MapView';
+import { isSessionEnded, getDayOfWeek } from '../utils/date';
+import { formatPhone } from '../utils/format';
 import '../App.css';
 
 function Home() {
@@ -14,7 +18,7 @@ function Home() {
     const [selectedPerf, setSelectedPerf] = useState(null);
     const [sessions, setSessions] = useState([]);
     const [userReservations, setUserReservations] = useState([]);
-    const [occupancy, setOccupancy] = useState({}); // { perfId: totalTickets }
+    const [occupancy, setOccupancy] = useState({}); // { perfId: { 'date|time': count } }
 
     // Review States
     const [reviews, setReviews] = useState([]);
@@ -49,20 +53,30 @@ function Home() {
     }
 
     async function fetchPerformances() {
-        const { data, error } = await supabase.from('performances').select('*');
-        if (!error && data) {
-            setPerformances(data);
+        // Fetch performances and their sessions to ensure we have session data for "Sold Out" calculation
+        const { data: perfData, error: perfError } = await supabase.from('performances').select('*');
+        const { data: sessionData, error: sessionError } = await supabase.from('performance_sessions').select('*');
+
+        if (!perfError && perfData) {
+            const combined = perfData.map(p => ({
+                ...p,
+                sessions: sessionData?.filter(s => s.performance_id === p.id) || []
+            }));
+            setPerformances(combined);
         }
     }
 
     async function fetchOccupancy() {
-        const { data, error } = await supabase.from('reservations').select('performance_id, tickets');
+        const { data, error } = await supabase.from('reservations').select('performance_id, date, time, tickets');
         if (!error && data) {
-            const counts = data.reduce((acc, res) => {
-                acc[res.performance_id] = (acc[res.performance_id] || 0) + res.tickets;
-                return acc;
-            }, {});
-            setOccupancy(counts);
+            const occ = {};
+            data.forEach(res => {
+                if (!occ[res.performance_id]) occ[res.performance_id] = {};
+                // Normalize date/time key
+                const key = `${res.date}|${res.time}`;
+                occ[res.performance_id][key] = (occ[res.performance_id][key] || 0) + res.tickets;
+            });
+            setOccupancy(occ);
         }
     }
 
@@ -71,31 +85,55 @@ function Home() {
         setLoading(true);
         const { data, error } = await supabase
             .from('reservations')
-            .select('*, performances(title)')
+            .select('*, performances(*)')
             .eq('phone', phone)
             .order('created_at', { ascending: false });
 
         if (!error && data) {
-            setUserReservations(data);
+            // For each reservation, we need to find its rank in that session
+            // To avoid too many DB calls, we could fetch counts in parallel
+            const enriched = await Promise.all(data.map(async (res) => {
+                const { count } = await supabase
+                    .from('reservations')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('performance_id', res.performance_id)
+                    .eq('date', res.date)
+                    .eq('time', res.time)
+                    .lt('created_at', res.created_at);
+
+                return { ...res, rank: (count || 0) + 1 };
+            }));
+            setUserReservations(enriched);
         }
         setLoading(false);
     }
 
-    async function fetchSessions(perfId) {
+    async function fetchSessions(perf) {
         const { data, error } = await supabase
             .from('performance_sessions')
             .select('*')
-            .eq('performance_id', perfId)
+            .eq('performance_id', perf.id)
             .order('date', { ascending: true });
 
         if (!error && data) {
             setSessions(data);
             if (data.length > 0) {
-                setFormData(prev => ({
-                    ...prev,
-                    date: data[0].date,
-                    time: data[0].time
-                }));
+                // Find first session that is NOT ended
+                const firstActive = data.find(s => !isSessionEnded(perf, s));
+                if (firstActive) {
+                    setFormData(prev => ({
+                        ...prev,
+                        date: firstActive.date,
+                        time: firstActive.time
+                    }));
+                } else {
+                    // All sessions ended or none exist
+                    setFormData(prev => ({
+                        ...prev,
+                        date: '',
+                        time: ''
+                    }));
+                }
             }
         }
     }
@@ -166,12 +204,25 @@ function Home() {
     };
 
     const handleSelectPerf = (perf) => {
-        setSelectedPerf(perf);
-        fetchSessions(perf.id);
-        fetchReviews(perf.id);
-        checkReviewEligibility(perf.id);
-        setView('reserve');
-        window.scrollTo(0, 0);
+        try {
+            setSelectedPerf(perf);
+            setSessions([]); // Clear previous sessions to avoid mismatch
+            // Reset form data
+            setFormData({
+                name: '',
+                date: '',
+                time: '',
+                tickets: 1
+            });
+            fetchSessions(perf);
+            fetchReviews(perf.id);
+            checkReviewEligibility(perf.id);
+            setView('reserve');
+            window.scrollTo(0, 0);
+        } catch (error) {
+            console.error('Error selecting performance:', error);
+            alert('공연 정보를 불러오는 중 오류가 발생했습니다.');
+        }
     };
 
     const submitReview = async (e) => {
@@ -264,30 +315,43 @@ function Home() {
             return;
         }
 
+        // Final check: Is this session already ended?
+        const currentSession = sessions.find(s => s.date === formData.date && s.time === formData.time);
+
+        if (!currentSession) {
+            alert('공연 회차(시간)를 선택해주세요.');
+            return;
+        }
+
+        if (isSessionEnded(selectedPerf, currentSession)) {
+            alert('이미 종료된 회차입니다. 예매가 불가능합니다.');
+            return;
+        }
+
         setLoading(true);
 
-        // Real-time occupancy AND capacity check before proceeding
-        const [resFetch, perfFetch] = await Promise.all([
-            supabase.from('reservations').select('tickets').eq('performance_id', selectedPerf.id),
-            supabase.from('performances').select('total_seats').eq('id', selectedPerf.id).single()
-        ]);
+        // Real-time occupancy check for the SPECIFIC SESSION
+        const { data: resFetch, error: resError } = await supabase
+            .from('reservations')
+            .select('tickets')
+            .eq('performance_id', selectedPerf.id)
+            .eq('date', formData.date)
+            .eq('time', formData.time);
 
-        if (resFetch.error || perfFetch.error) {
-            alert('정보 확인 실패: ' + (resFetch.error?.message || perfFetch.error?.message));
+        if (resError) {
+            alert('정보 확인 실패: ' + resError.message);
             setLoading(false);
             return;
         }
 
-        const latestBooked = resFetch.data.reduce((sum, res) => sum + res.tickets, 0);
-        const currentTotalSeats = perfFetch.data.total_seats;
-
-        // Update local state for UI consistency
-        setOccupancy(prev => ({ ...prev, [selectedPerf.id]: latestBooked }));
-        setSelectedPerf(prev => ({ ...prev, total_seats: currentTotalSeats }));
+        const latestBooked = resFetch.reduce((sum, res) => sum + res.tickets, 0);
+        const currentTotalSeats = selectedPerf.total_seats;
 
         if (latestBooked + formData.tickets > currentTotalSeats) {
-            alert(`죄송합니다. 예약 가능 인원이 변경되었거나 매진되었습니다.\n(현재 잔여 좌석: ${Math.max(0, currentTotalSeats - latestBooked)}석)`);
+            alert(`죄송합니다. 해당 회차는 잔여 좌석이 부족합니다.\n(현재 잔여 좌석: ${Math.max(0, currentTotalSeats - latestBooked)}석)`);
             setLoading(false);
+            // Update local occupancy to reflect reality
+            fetchOccupancy();
             return;
         }
 
@@ -331,11 +395,15 @@ function Home() {
         setLoading(false);
     };
 
-    const getDayOfWeek = (dateStr) => {
-        const days = ['일', '월', '화', '수', '목', '금', '토'];
-        const date = new Date(dateStr.replace(/\./g, '-'));
-        return days[date.getDay()];
-    };
+
+    // Memoize filtered performances to avoid recalculation on every render
+    const ongoingPerformances = performances.filter(p => !isPerformanceEnded(p));
+    const endedPerformances = performances.filter(p => isPerformanceEnded(p));
+
+    function isPerformanceEnded(perf) {
+        if (!perf.sessions || perf.sessions.length === 0) return false;
+        return perf.sessions.every(s => isSessionEnded(perf, s));
+    }
 
     return (
         <div className="container">
@@ -381,7 +449,7 @@ function Home() {
                                     <input
                                         type="tel"
                                         placeholder="010-0000-0000"
-                                        value={phone}
+                                        value={formatPhone(phone)}
                                         onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
                                         required
                                     />
@@ -400,161 +468,41 @@ function Home() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
                                 <h2 style={{ margin: 0 }}>진행 중인 공연</h2>
                                 <span style={{ padding: '0.4rem 0.8rem', background: 'var(--accent-color)', color: '#fff', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                                    {performances.filter(p => {
-                                        const [, endStr] = (p.date_range || '').split(' - ');
-                                        if (!endStr) return true;
-                                        const endDate = new Date(endStr.replace(/\./g, '-'));
-                                        return endDate >= new Date(new Date().setHours(0, 0, 0, 0));
-                                    }).length}건
+                                    {ongoingPerformances.length}건
                                 </span>
                             </div>
 
                             <div className="grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 380px), 1fr))', gap: '2.5rem' }}>
-                                {performances.filter(p => {
-                                    const [, endStr] = (p.date_range || '').split(' - ');
-                                    if (!endStr) return true;
-                                    const endDate = new Date(endStr.replace(/\./g, '-'));
-                                    return endDate >= new Date(new Date().setHours(0, 0, 0, 0));
-                                }).map(perf => {
-                                    const booked = occupancy[perf.id] || 0;
-                                    const isSoldOut = perf.total_seats > 0 && booked >= perf.total_seats;
-                                    return (
-                                        <div
-                                            key={perf.id}
-                                            className="booking-card"
-                                            style={{
-                                                padding: '0',
-                                                overflow: 'hidden',
-                                                cursor: isSoldOut ? 'default' : 'pointer',
-                                                position: 'relative',
-                                                border: '1px solid #eee',
-                                                transition: 'all 0.3s ease'
-                                            }}
-                                            onClick={() => handleSelectPerf(perf)}
-                                        >
-                                            {/* Status Badge */}
-                                            <div style={{
-                                                position: 'absolute',
-                                                top: '1rem',
-                                                right: '1rem',
-                                                zIndex: 3,
-                                                padding: '0.5rem 1rem',
-                                                borderRadius: '30px',
-                                                fontSize: '0.85rem',
-                                                fontWeight: '900',
-                                                background: isSoldOut ? 'rgba(231, 76, 60, 0.9)' : 'rgba(46, 204, 113, 0.9)',
-                                                color: '#fff',
-                                                boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
-                                            }}>
-                                                {isSoldOut ? '잔여석 없음' : '예매 가능'}
-                                            </div>
-
-                                            {perf.poster_url && (
-                                                <div style={{ position: 'relative', height: '320px', overflow: 'hidden' }}>
-                                                    <img src={perf.poster_url} alt={perf.title} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s' }} className="perf-poster" />
-                                                    {isSoldOut && (
-                                                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', backdropFilter: 'grayscale(0.5)' }} />
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                                <h3 style={{ marginBottom: '1rem', fontSize: '1.5rem', fontWeight: '800' }}>{perf.title}</h3>
-                                                <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.6rem', flex: 1 }}>
-                                                    <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><span>📅</span> {perf.date_range}</p>
-                                                    <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><span>📍</span> {perf.location}</p>
-                                                </div>
-                                                <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #f5f5f5', paddingTop: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                                                        <span style={{ fontSize: '0.75rem', color: '#999' }}>현재 예매 상황</span>
-                                                        <span style={{ fontWeight: '800', fontSize: '1rem', color: isSoldOut ? '#e74c3c' : 'var(--accent-color)' }}>
-                                                            💺 {booked} / {perf.total_seats}석
-                                                        </span>
-                                                    </div>
-                                                    <div style={{ textAlign: 'right' }}>
-                                                        <span style={{ fontSize: '0.75rem', color: '#999', display: 'block', marginBottom: '0.2rem' }}>티켓 가격</span>
-                                                        <span style={{ fontSize: '1.3rem', fontWeight: '900', color: 'var(--text-primary)' }}>{perf.price.toLocaleString()}원</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                {ongoingPerformances.map(perf => (
+                                    <PerformanceCard
+                                        key={perf.id}
+                                        perf={perf}
+                                        occupancy={occupancy}
+                                        onSelect={handleSelectPerf}
+                                    />
+                                ))}
                             </div>
                         </div>
 
                         {/* 2.2 Ended Performances */}
-                        {performances.filter(p => {
-                            const [, endStr] = (p.date_range || '').split(' - ');
-                            if (!endStr) return false;
-                            const endDate = new Date(endStr.replace(/\./g, '-'));
-                            return endDate < new Date(new Date().setHours(0, 0, 0, 0));
-                        }).length > 0 && (
-                                <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
-                                        <h2 style={{ margin: 0, color: '#999' }}>종료된 공연</h2>
-                                    </div>
-                                    <div className="grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 380px), 1fr))', gap: '2.5rem' }}>
-                                        {performances.filter(p => {
-                                            const [, endStr] = (p.date_range || '').split(' - ');
-                                            if (!endStr) return false;
-                                            const endDate = new Date(endStr.replace(/\./g, '-'));
-                                            return endDate < new Date(new Date().setHours(0, 0, 0, 0));
-                                        }).map(perf => (
-                                            <div
-                                                key={perf.id}
-                                                className="booking-card"
-                                                style={{
-                                                    padding: '0',
-                                                    overflow: 'hidden',
-                                                    opacity: 0.8,
-                                                    border: '1px solid #ddd',
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    filter: 'grayscale(0.6)'
-                                                }}
-                                                onClick={() => handleSelectPerf(perf)}
-                                            >
-                                                <div style={{ position: 'relative', height: '240px', overflow: 'hidden' }}>
-                                                    {perf.poster_url && <img src={perf.poster_url} alt={perf.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                                                    <div style={{
-                                                        position: 'absolute',
-                                                        top: 0, left: 0, right: 0, bottom: 0,
-                                                        background: 'rgba(0,0,0,0.5)',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        color: '#fff',
-                                                        fontSize: '1.2rem',
-                                                        fontWeight: 'bold',
-                                                        letterSpacing: '2px'
-                                                    }}>
-                                                        공연 종료
-                                                    </div>
-                                                </div>
-                                                <div style={{ padding: '1.5rem', flex: 1 }}>
-                                                    <h4 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)', fontSize: '1.3rem' }}>{perf.title}</h4>
-                                                    <div style={{ fontSize: '0.9rem', color: '#888', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                        <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><span>📅</span> {perf.date_range}</p>
-                                                        <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><span>📍</span> {perf.location}</p>
-                                                    </div>
-                                                    <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
-                                                        <span style={{
-                                                            fontSize: '0.8rem',
-                                                            color: 'var(--accent-color)',
-                                                            border: '1px solid var(--accent-color)',
-                                                            padding: '0.3rem 0.8rem',
-                                                            borderRadius: '4px',
-                                                            fontWeight: 'bold'
-                                                        }}>관람평 보기 →</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                        {endedPerformances.length > 0 && (
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                                    <h2 style={{ margin: 0, color: '#999' }}>종료된 공연</h2>
                                 </div>
-                            )}
+                                <div className="grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 380px), 1fr))', gap: '2.5rem' }}>
+                                    {endedPerformances.map(perf => (
+                                        <PerformanceCard
+                                            key={perf.id}
+                                            perf={perf}
+                                            occupancy={occupancy}
+                                            onSelect={handleSelectPerf}
+                                            isEnded={true}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </section>
                 )}
 
@@ -562,7 +510,7 @@ function Home() {
                 {view === 'reserve' && selectedPerf && (
                     <section className="booking-detail perf-detail-grid">
                         <div className="perf-info-panel">
-                            <img src={selectedPerf.poster_url} alt={selectedPerf.title} style={{ width: '100%', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }} />
+                            {selectedPerf.poster_url && <img src={selectedPerf.poster_url} alt={selectedPerf.title} style={{ width: '100%', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }} />}
                             <div style={{ marginTop: '2rem' }}>
                                 <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>{selectedPerf.title}</h2>
                                 <div style={{
@@ -574,342 +522,290 @@ function Home() {
                                     color: 'var(--text-secondary)'
                                 }}>
                                     <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <span>📍</span> <b>장소:</b> {selectedPerf.location}
-                                    </p>
-                                    <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                         <span>⏱️</span> <b>공연 시간:</b> {selectedPerf.duration}
                                     </p>
                                     <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                         <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>👥</span>
                                         <span><b>관람 등급:</b> {selectedPerf.age_rating === 'all' ? '전체 관람가' : `${selectedPerf.age_rating}세 이상 관람가`}</span>
                                     </p>
+                                    <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>💺</span>
+                                        <span><b>총 좌석:</b> 회차당 {selectedPerf.total_seats}석</span>
+                                    </p>
                                 </div>
-                                <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', whiteSpace: 'pre-line', marginBottom: '2rem' }}>{selectedPerf.description}</p>
-
-                                {selectedPerf.latitude && selectedPerf.longitude && (
-                                    <div style={{ marginBottom: '2rem' }}>
+                                <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', whiteSpace: 'pre-line', marginBottom: '3.5rem' }}>{selectedPerf.description}</p>
+                                <div style={{ marginBottom: '3rem', paddingTop: '1rem', borderTop: '1px solid #efefef' }}>
+                                    <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span>📍</span> 오시는 길
+                                    </h3>
+                                    <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', marginBottom: '1rem', paddingLeft: '0.5rem' }}>
+                                        : {selectedPerf.location} {selectedPerf.address ? `(${selectedPerf.address})` : ''}
+                                    </p>
+                                    {selectedPerf.latitude && selectedPerf.longitude && (
                                         <MapView
                                             lat={selectedPerf.latitude}
                                             lng={selectedPerf.longitude}
                                             locationName={selectedPerf.location}
                                         />
-                                    </div>
-                                )}
-
-                                <div style={{
-                                    padding: '1.5rem',
-                                    background: '#f8f9fa',
-                                    borderRadius: '12px',
-                                    border: '1px solid #eee'
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                        <span style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>실시간 예매 현황</span>
-                                        <span style={{
-                                            padding: '0.3rem 0.8rem',
-                                            borderRadius: '20px',
-                                            fontSize: '0.8rem',
-                                            fontWeight: 'bold',
-                                            background: (occupancy[selectedPerf.id] || 0) >= selectedPerf.total_seats ? '#ffebee' : '#e8f5e9',
-                                            color: (occupancy[selectedPerf.id] || 0) >= selectedPerf.total_seats ? '#e74c3c' : '#2ecc71'
-                                        }}>
-                                            {(occupancy[selectedPerf.id] || 0) >= selectedPerf.total_seats ? '매진 임박' : '예매 가능'}
-                                        </span>
-                                    </div>
-                                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--accent-color)', marginBottom: '0.5rem' }}>
-                                        💺 {occupancy[selectedPerf.id] || 0} / {selectedPerf.total_seats}석 예약 완료
-                                    </div>
-                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
-                                        (현재 잔여 좌석: {Math.max(0, selectedPerf.total_seats - (occupancy[selectedPerf.id] || 0))}석)
-                                    </p>
+                                    )}
                                 </div>
+
+
                             </div>
                         </div>
 
-                        <div className="booking-card" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                            {(() => {
-                                const [, endStr] = (selectedPerf.date_range || '').split(' - ');
-                                const isEnded = endStr && new Date(endStr.replace(/\./g, '-')) < new Date(new Date().setHours(0, 0, 0, 0));
+                        {/* Booking Form Panel */}
+                        <div className="perf-booking-panel">
+                            <div className="sticky-booking-card">
+                                <h3>예매하기</h3>
+                                <div style={{ marginBottom: '1.5rem' }}></div>
+                                <form onSubmit={handleSubmit} className="booking-form">
+                                    <div className="form-group">
+                                        <label>날짜</label>
+                                        <select
+                                            name="date"
+                                            value={formData.date}
+                                            onChange={(e) => {
+                                                const newDate = e.target.value;
+                                                // Find first non-ended session for this date to auto-select
+                                                const firstValidSession = sessions.filter(s => s.date === newDate).find(s => !isSessionEnded(selectedPerf, s));
 
-                                if (!isEnded) {
-                                    return (
-                                        <div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                                                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
-                                                    <span>🎟️</span> 티켓 예매
-                                                </h3>
-                                                <button onClick={() => setView('performances')} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
-                                            </div>
-                                            <form onSubmit={handleSubmit} className="booking-form">
-                                                <div className="form-group">
-                                                    <label>관람 일정 선택</label>
-                                                    <select
-                                                        className="form-control"
-                                                        value={`${formData.date}|${formData.time}`}
-                                                        onChange={(e) => {
-                                                            const [d, t] = e.target.value.split('|');
-                                                            setFormData(p => ({ ...p, date: d, time: t }));
-                                                        }}
-                                                        required
-                                                    >
-                                                        {sessions.map((s, idx) => (
-                                                            <option key={idx} value={`${s.date}|${s.time}`}>
-                                                                {s.date} ({getDayOfWeek(s.date)}) {s.time}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    date: newDate,
+                                                    time: firstValidSession ? firstValidSession.time : ''
+                                                }));
+                                            }}
+                                            required
+                                            style={{ padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%' }}
+                                        >
+                                            {/* Unique Dates */}
+                                            {[...new Set(sessions.map(s => s.date))].map(date => (
+                                                <option key={date} value={date}>{date} ({getDayOfWeek(date)})</option>
+                                            ))}
+                                            {sessions.length === 0 && <option value="">회차 정보 없음</option>}
+                                        </select>
+                                    </div>
 
-                                                <div className="form-group">
-                                                    <label>예매자 성함</label>
-                                                    <input type="text" name="name" className="form-control" placeholder="성함을 입력해주세요" value={formData.name} onChange={handleChange} required />
-                                                </div>
+                                    <div className="form-group">
+                                        <label>시간</label>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                                            {sessions.filter(s => s.date === formData.date).map(s => {
+                                                const key = `${s.date}|${s.time}`;
+                                                // NOTE: selectedPerf.total_seats -> each performance has same total seats per user req.
+                                                const booked = (occupancy[selectedPerf.id] && occupancy[selectedPerf.id][key]) || 0;
+                                                const remaining = Math.max(0, selectedPerf.total_seats - booked);
+                                                const isSoldOut = remaining <= 0;
+                                                const isEnded = isSessionEnded(selectedPerf, s);
 
-                                                <div className="form-group">
-                                                    <label>핸드폰 번호</label>
-                                                    <input type="text" className="form-control" value={phone} disabled style={{ background: '#f8f9fa', color: '#888' }} />
-                                                </div>
-
-                                                <div className="form-group">
-                                                    <label>매수</label>
-                                                    <div className="ticket-count-box" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                        <div style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            background: '#fff',
-                                                            border: '1px solid #ddd',
-                                                            borderRadius: '8px',
-                                                            overflow: 'hidden'
-                                                        }}>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setFormData(p => ({ ...p, tickets: Math.max(1, p.tickets - 1) }))}
-                                                                style={{
-                                                                    padding: '0.6rem 1rem',
-                                                                    border: 'none',
-                                                                    background: '#f8f9fa',
-                                                                    cursor: 'pointer',
-                                                                    fontSize: '1.1rem',
-                                                                    borderRight: '1px solid #ddd'
-                                                                }}
-                                                            >-</button>
-                                                            <div style={{ padding: '0 1rem', fontWeight: 'bold', minWidth: '3rem', textAlign: 'center', fontSize: '1.1rem' }}>
-                                                                {formData.tickets}
-                                                            </div>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setFormData(p => ({ ...p, tickets: p.tickets + 1 }))}
-                                                                style={{
-                                                                    padding: '0.6rem 1rem',
-                                                                    border: 'none',
-                                                                    background: '#f8f9fa',
-                                                                    cursor: 'pointer',
-                                                                    fontSize: '1.1rem',
-                                                                    borderLeft: '1px solid #ddd'
-                                                                }}
-                                                            >+</button>
-                                                        </div>
-                                                        <span style={{ color: 'var(--text-secondary)', fontWeight: 'bold', fontSize: '0.9rem' }}>장</span>
-                                                    </div>
-                                                </div>
-
-                                                <div className="payment-box">
-                                                    <div>
-                                                        <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.9 }}>최종 결제 금액 (현장 결제)</p>
-                                                        <h3 style={{ margin: 0, fontSize: '1.6rem' }}>{(formData.tickets * selectedPerf.price).toLocaleString()}원</h3>
-                                                    </div>
+                                                return (
                                                     <button
-                                                        type="submit"
-                                                        disabled={loading}
+                                                        key={s.time}
+                                                        type="button"
+                                                        disabled={isSoldOut || isEnded}
+                                                        onClick={() => setFormData(prev => ({ ...prev, time: s.time }))}
                                                         style={{
-                                                            background: '#fff',
-                                                            color: 'var(--accent-color)',
-                                                            padding: '0.7rem 1.2rem',
+                                                            padding: '0.8rem',
                                                             borderRadius: '8px',
-                                                            fontWeight: 'bold',
-                                                            fontSize: '0.95rem',
-                                                            border: 'none',
-                                                            cursor: 'pointer',
-                                                            boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                                                            border: formData.time === s.time ? '2px solid var(--accent-color)' : '1px solid #ddd',
+                                                            background: formData.time === s.time ? '#fff5f5' : (isSoldOut || isEnded ? '#f0f0f0' : '#fff'),
+                                                            color: formData.time === s.time ? 'var(--accent-color)' : (isSoldOut || isEnded ? '#aaa' : '#333'),
+                                                            cursor: (isSoldOut || isEnded) ? 'not-allowed' : 'pointer',
+                                                            fontWeight: formData.time === s.time ? 'bold' : 'normal',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            alignItems: 'center',
+                                                            gap: '0.2rem'
                                                         }}
                                                     >
-                                                        {loading ? '처리 중...' : '예매하기'}
+                                                        <span>{s.time}</span>
+                                                        <span style={{ fontSize: '0.75rem', color: isSoldOut || isEnded ? '#e74c3c' : 'var(--accent-color)' }}>
+                                                            {isSoldOut ? '매진' : (isEnded ? '관람 종료' : `${remaining}/${selectedPerf.total_seats}석`)}
+                                                        </span>
                                                     </button>
-                                                </div>
-                                            </form>
+                                                );
+                                            })}
                                         </div>
-                                    );
-                                } else {
-                                    return (
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>예매자명</label>
+                                        <input
+                                            type="text"
+                                            name="name"
+                                            value={formData.name}
+                                            onChange={handleChange}
+                                            placeholder="홍길동"
+                                            required
+                                            style={{ padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%' }}
+                                        />
+                                    </div>
+
+                                    <div style={{
+                                        marginTop: '2rem',
+                                        padding: '1.2rem',
+                                        background: '#f8f9fa',
+                                        borderRadius: '12px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        gap: '1rem'
+                                    }}>
                                         <div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                                                <h3 style={{ margin: 0 }}>공연 안내</h3>
-                                                <button onClick={() => setView('performances')} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
-                                            </div>
-                                            <div style={{
-                                                padding: '2rem',
-                                                background: '#f8f9fa',
-                                                borderRadius: '12px',
-                                                textAlign: 'center',
-                                                border: '2px dashed #ddd'
-                                            }}>
-                                                <span style={{ fontSize: '3rem', display: 'block', marginBottom: '1rem' }}>⌛</span>
-                                                <h3 style={{ color: '#999', margin: 0 }}>공연이 종료되어 예매가 불가합니다</h3>
-                                                <p style={{ color: '#bbb', marginTop: '0.5rem' }}>관람평으로 공연의 감동을 나눠보세요!</p>
+                                            <label style={{ fontSize: '0.85rem', color: '#666', display: 'block', marginBottom: '0.8rem' }}>관람 인원</label>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                <button type="button" onClick={() => setFormData(prev => ({ ...prev, tickets: Math.max(1, prev.tickets - 1) }))} style={{ width: '34px', height: '34px', borderRadius: '50%', border: '1px solid #ddd', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>-</button>
+                                                <span style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{formData.tickets}</span>
+                                                <button type="button" onClick={() => setFormData(prev => ({ ...prev, tickets: Math.min(10, prev.tickets + 1) }))} style={{ width: '34px', height: '34px', borderRadius: '50%', border: '1px solid #ddd', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                                             </div>
                                         </div>
-                                    );
-                                }
-                            })()}
-
-                            {/* Review Section */}
-                            <div style={{ marginTop: '1rem', borderTop: '1px solid #eee', paddingTop: '2rem' }}>
-                                <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <span>💬</span> 관람평 ({reviews.length})
-                                </h3>
-
-                                {canReview ? (
-                                    hasReviewed ? (
-                                        <div style={{
-                                            padding: '1.5rem',
-                                            background: '#f8f9fa',
-                                            borderRadius: '12px',
-                                            fontSize: '0.95rem',
-                                            color: '#666',
-                                            marginBottom: '2rem',
-                                            textAlign: 'center',
-                                            border: '1px solid #eee'
-                                        }}>
-                                            ✅ 이미 관람평을 작성하셨습니다. 소중한 의견 감사합니다!
+                                        <div style={{ textAlign: 'right' }}>
+                                            <span style={{ fontSize: '0.85rem', color: '#666', display: 'block', marginBottom: '0.3rem' }}>총 결제 금액</span>
+                                            <span style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--accent-color)' }}>
+                                                {(formData.tickets * selectedPerf.price).toLocaleString()}원
+                                            </span>
                                         </div>
-                                    ) : (
-                                        <form onSubmit={submitReview} style={{ marginBottom: '2rem' }}>
-                                            <div style={{ position: 'relative' }}>
-                                                <textarea
-                                                    name="content"
-                                                    placeholder="공연은 어떠셨나요? 소중한 후기를 남겨주세요."
-                                                    required
+                                    </div>
+
+                                    {(() => {
+                                        const currentS = sessions.find(s => s.date === formData.date && s.time === formData.time);
+                                        const isEnded = isPerformanceEnded(selectedPerf) || (currentS ? isSessionEnded(selectedPerf, currentS) : false);
+
+                                        if (isEnded) {
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    disabled
                                                     style={{
                                                         width: '100%',
-                                                        height: '100px',
                                                         padding: '1rem',
-                                                        borderRadius: '12px',
+                                                        marginTop: '1.5rem',
+                                                        fontSize: '1.1rem',
+                                                        background: '#f0f0f0',
+                                                        color: '#aaa',
                                                         border: '1px solid #ddd',
-                                                        resize: 'none',
-                                                        fontSize: '0.95rem'
-                                                    }}
-                                                />
-                                                <button
-                                                    type="submit"
-                                                    disabled={loading}
-                                                    style={{
-                                                        position: 'absolute',
-                                                        bottom: '1rem',
-                                                        right: '1rem',
-                                                        background: 'var(--accent-color)',
-                                                        color: '#fff',
-                                                        padding: '0.4rem 1rem',
-                                                        borderRadius: '6px',
-                                                        fontSize: '0.85rem',
-                                                        border: 'none',
-                                                        cursor: 'pointer'
+                                                        borderRadius: '12px',
+                                                        cursor: 'not-allowed',
+                                                        fontWeight: 'bold'
                                                     }}
                                                 >
-                                                    {loading ? '등록 중...' : '등록'}
+                                                    이미 종료된 공연/회차입니다
                                                 </button>
-                                            </div>
-                                        </form>
-                                    )
-                                ) : (
-                                    isIdentified ? (
-                                        <div style={{
-                                            padding: '1rem',
-                                            background: '#f8f9fa',
-                                            borderRadius: '8px',
-                                            fontSize: '0.85rem',
-                                            color: '#999',
-                                            marginBottom: '1.5rem',
-                                            textAlign: 'center'
-                                        }}>
-                                            💡 공연 일정이 시작된 이후,<br />티켓을 예매하신 분들에 한해서만<br />관람평을 작성하실 수 있습니다.
-                                        </div>
-                                    ) : (
-                                        <div style={{
-                                            padding: '1rem',
-                                            background: '#fff9f0',
-                                            borderRadius: '8px',
-                                            fontSize: '0.85rem',
-                                            color: '#d35400',
-                                            marginBottom: '1.5rem',
-                                            textAlign: 'center'
-                                        }}>
-                                            💡 예매하신 핸드폰 번호로 로그인하시면 관람평을 작성하실 수 있습니다.
-                                        </div>
-                                    )
-                                )}
+                                            );
+                                        }
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '500px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                                        if (!isIdentified) {
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setView('login')}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '1rem',
+                                                        marginTop: '1.5rem',
+                                                        fontSize: '1.1rem',
+                                                        background: '#fff',
+                                                        color: '#e74c3c', // Red text
+                                                        border: '1px solid #e74c3c', // Red border
+                                                        borderRadius: '12px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 'bold',
+                                                        transition: 'all 0.2s',
+                                                        display: 'flex',
+                                                        justifyContent: 'center',
+                                                        alignItems: 'center',
+                                                        gap: '0.5rem'
+                                                    }}
+                                                    onMouseEnter={(e) => { e.target.style.background = '#fff5f5'; }} // Slight red check background on hover
+                                                    onMouseLeave={(e) => { e.target.style.background = '#fff'; }}
+                                                >
+                                                    <span style={{ fontSize: '1.2rem' }}>🔒</span> 로그인 후 예매하기
+                                                </button>
+                                            );
+                                        }
+
+                                        return (
+                                            <button
+                                                type="submit"
+                                                className="submit-btn"
+                                                disabled={loading}
+                                                style={{ marginTop: '1.5rem' }}
+                                            >
+                                                {loading ? '처리 중...' : '예매하기'}
+                                            </button>
+                                        );
+                                    })()}
+                                </form>
+                            </div>
+
+                            <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #eee' }}>
+                                <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    관람평 <span style={{ fontSize: '0.9rem', color: '#888', fontWeight: 'normal' }}>({reviews.length})</span>
+                                </h3>
+
+                                {canReview && !hasReviewed ? (
+                                    <form onSubmit={submitReview} style={{ marginBottom: '2rem', background: '#f9f9f9', padding: '1rem', borderRadius: '8px' }}>
+                                        <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', fontSize: '0.9rem' }}>관람평 작성하기</p>
+                                        <textarea
+                                            name="content"
+                                            placeholder="공연 재밌게 보셨나요? 솔직한 후기를 들려주세요!"
+                                            style={{ width: '100%', height: '80px', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '0.9rem', resize: 'none' }}
+                                            required
+                                        />
+                                        <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
+                                            <button type="submit" disabled={loading} style={{ padding: '0.5rem 1rem', background: 'var(--accent-color)', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem' }}>등록</button>
+                                        </div>
+                                    </form>
+                                ) : hasReviewed ? (
+                                    <div style={{ marginBottom: '2rem', padding: '1rem', background: '#f0fff4', borderRadius: '8px', textAlign: 'center', color: '#2ecc71', fontSize: '0.9rem' }}>
+                                        이미 관람평을 작성하셨습니다. 감사합니다!
+                                    </div>
+                                ) : null}
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                     {reviews.length === 0 ? (
-                                        (() => {
-                                            const [startStr] = (selectedPerf.date_range || '').split(' - ');
-                                            const hasStarted = startStr && new Date(startStr.replace(/\./g, '-')) <= new Date();
-                                            return hasStarted ? (
-                                                <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>아직 등록된 관람평이 없습니다.</p>
-                                            ) : null;
-                                        })()
+                                        <p style={{ color: '#999', textAlign: 'center', padding: '1rem' }}>아직 등록된 관람평이 없습니다.</p>
                                     ) : (
                                         reviews.map(rev => (
-                                            <div key={rev.id} style={{ padding: '1.2rem', background: '#fcfcfc', borderRadius: '10px', border: '1px solid #f0f0f0' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                                                    <div>
-                                                        <span style={{ fontWeight: 'bold', fontSize: '0.9rem', marginRight: '0.8rem' }}>{rev.user_name}</span>
-                                                        <span style={{ fontSize: '0.75rem', color: '#999' }}>{new Date(rev.created_at).toLocaleDateString()}</span>
-                                                    </div>
-
-                                                    {rev.user_phone === phone && (
-                                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                            <button
-                                                                onClick={() => {
-                                                                    setEditingReviewId(rev.id);
-                                                                    setEditContent(rev.content);
-                                                                }}
-                                                                style={{ background: 'none', border: 'none', color: '#666', fontSize: '0.75rem', cursor: 'pointer', padding: '0.2rem' }}
-                                                            >수정</button>
-                                                            <button
-                                                                onClick={() => handleDeleteReview(rev.id)}
-                                                                style={{ background: 'none', border: 'none', color: '#e74c3c', fontSize: '0.75rem', cursor: 'pointer', padding: '0.2rem' }}
-                                                            >삭제</button>
-                                                        </div>
-                                                    )}
+                                            <div key={rev.id} style={{ background: '#fff', padding: '1rem', borderRadius: '8px', border: '1px solid #eee' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                                    <span style={{ fontWeight: 'bold' }}>{rev.user_name}</span>
+                                                    <span style={{ fontSize: '0.85rem', color: '#999' }}>{new Date(rev.created_at).toLocaleDateString()}</span>
                                                 </div>
 
-                                                {editingReviewId === rev.id ? (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                        <textarea
-                                                            value={editContent}
-                                                            onChange={(e) => setEditContent(e.target.value)}
-                                                            style={{
-                                                                width: '100%',
-                                                                height: '80px',
-                                                                padding: '0.5rem',
-                                                                borderRadius: '8px',
-                                                                border: '1px solid var(--accent-color)',
-                                                                fontSize: '0.9rem'
-                                                            }}
-                                                        />
-                                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                            <button
-                                                                onClick={() => setEditingReviewId(null)}
-                                                                style={{ padding: '0.3rem 0.8rem', borderRadius: '4px', border: '1px solid #ddd', background: '#fff', fontSize: '0.8rem', cursor: 'pointer' }}
-                                                            >취소</button>
-                                                            <button
-                                                                onClick={() => handleUpdateReview(rev.id)}
-                                                                disabled={loading}
-                                                                style={{ padding: '0.3rem 0.8rem', borderRadius: '4px', border: 'none', background: 'var(--accent-color)', color: '#fff', fontSize: '0.8rem', cursor: 'pointer' }}
-                                                            >저장</button>
-                                                        </div>
+                                                {rev.user_phone === phone ? (
+                                                    // My review
+                                                    <div style={{ marginTop: '0.5rem' }}>
+                                                        {editingReviewId === rev.id ? (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                                <textarea
+                                                                    value={editContent}
+                                                                    onChange={(e) => setEditContent(e.target.value)}
+                                                                    style={{ width: '100%', height: '60px', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--accent-color)' }}
+                                                                />
+                                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                                    <button onClick={() => setEditingReviewId(null)} style={{ padding: '0.3rem 0.6rem', border: '1px solid #ddd', background: '#fff' }}>취소</button>
+                                                                    <button onClick={() => handleUpdateReview(rev.id)} style={{ padding: '0.3rem 0.6rem', border: 'none', background: 'var(--accent-color)', color: '#fff' }}>저장</button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <p style={{ margin: '0 0 0.5rem 0', color: '#333' }}>{rev.content}</p>
+                                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                                    <button
+                                                                        onClick={() => { setEditingReviewId(rev.id); setEditContent(rev.content); }}
+                                                                        style={{ fontSize: '0.8rem', color: '#999', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                                                                    >수정</button>
+                                                                    <button
+                                                                        onClick={() => handleDeleteReview(rev.id)}
+                                                                        style={{ fontSize: '0.8rem', color: '#e74c3c', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                                                                    >삭제</button>
+                                                                </div>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 ) : (
-                                                    <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: '1.6', color: '#444' }}>{rev.content}</p>
+                                                    <p style={{ margin: 0, color: '#444' }}>{rev.content}</p>
                                                 )}
                                             </div>
                                         ))
@@ -931,79 +827,49 @@ function Home() {
                         {loading ? (
                             <p style={{ textAlign: 'center', padding: '3rem' }}>불러오는 중...</p>
                         ) : userReservations.length > 0 ? (
-                            <div className="grid-container" style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                                gap: '1.5rem'
-                            }}>
-                                {userReservations.map(res => (
-                                    <div key={res.id} className="booking-card" style={{
-                                        padding: '0',
-                                        overflow: 'hidden',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        border: '1px solid #eee',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-                                    }}>
-                                        <div style={{
-                                            background: 'var(--accent-color)',
-                                            color: '#fff',
-                                            padding: '1rem 1.5rem',
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center'
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
+                                {userReservations.filter(res => !isSessionEnded(res.performances || {}, res)).length > 0 && (
+                                    <div>
+                                        <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-primary)' }}>
+                                            <span style={{ color: 'var(--accent-color)' }}>●</span> 진행 중인 예매
+                                        </h3>
+                                        <div className="grid-container" style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                                            gap: '1.5rem'
                                         }}>
-                                            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', opacity: 0.9 }}>TICKET NO. {res.id}</span>
-                                            <span style={{ fontSize: '0.9rem', fontWeight: '800' }}>{res.tickets}매</span>
-                                        </div>
-
-                                        <div style={{ padding: '1.5rem', flex: 1 }}>
-                                            <h4 style={{ fontSize: '1.2rem', marginBottom: '0.8rem', color: 'var(--text-primary)' }}>{res.performances?.title}</h4>
-
-                                            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    <span>📅</span>
-                                                    <span style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{res.date}</span>
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    <span>👤</span>
-                                                    <span>{res.name}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div style={{
-                                            padding: '1.2rem 1.5rem',
-                                            borderTop: '1px dashed #eee',
-                                            background: '#fafafa',
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center'
-                                        }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <span style={{ fontSize: '0.75rem', color: '#999', marginBottom: '0.2rem' }}>현장 결제 금액</span>
-                                                <span style={{ color: 'var(--accent-color)', fontWeight: '800', fontSize: '1.1rem' }}>{(res.total_price || 0).toLocaleString()}원</span>
-                                            </div>
-                                            <button
-                                                onClick={() => handleCancelReservation(res.id)}
-                                                style={{
-                                                    padding: '0.5rem 1rem',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid #e74c3c',
-                                                    color: '#e74c3c',
-                                                    background: 'none',
-                                                    fontSize: '0.85rem',
-                                                    fontWeight: 'bold',
-                                                    cursor: 'pointer'
-                                                }}
-                                                onMouseEnter={(e) => { e.target.style.background = '#e74c3c'; e.target.style.color = '#fff' }}
-                                                onMouseLeave={(e) => { e.target.style.background = 'none'; e.target.style.color = '#e74c3c' }}
-                                            >
-                                                예매 취소
-                                            </button>
+                                            {userReservations.filter(res => !isSessionEnded(res.performances || {}, res)).map(res => (
+                                                <ReservationItem
+                                                    key={res.id}
+                                                    res={res}
+                                                    onCancel={handleCancelReservation}
+                                                />
+                                            ))}
                                         </div>
                                     </div>
-                                ))}
+                                )}
+
+                                {/* 4.2 Ended Tickets */}
+                                {userReservations.filter(res => isSessionEnded(res.performances || {}, res)).length > 0 && (
+                                    <div style={{ marginTop: '1rem' }}>
+                                        <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#999' }}>
+                                            <span style={{ color: '#ccc' }}>●</span> 관람 완료 / 종료된 공연
+                                        </h3>
+                                        <div className="grid-container" style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                                            gap: '1.5rem'
+                                        }}>
+                                            {userReservations.filter(res => isSessionEnded(res.performances || {}, res)).map(res => (
+                                                <ReservationItem
+                                                    key={res.id}
+                                                    res={res}
+                                                    onCancel={handleCancelReservation}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div className="booking-card" style={{ textAlign: 'center', padding: '4rem 2rem', maxWidth: '100%' }}>
@@ -1015,9 +881,8 @@ function Home() {
                     </section>
                 )}
             </main>
-        </div>
+        </div >
     );
 }
 
 export default Home;
-

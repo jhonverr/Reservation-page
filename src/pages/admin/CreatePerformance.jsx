@@ -25,7 +25,7 @@ function CreatePerformance() {
     });
 
     const [posterFile, setPosterFile] = useState(null);
-    const [sessions, setSessions] = useState([{ date: '', time: '' }]);
+    const [sessions, setSessions] = useState([]);
 
     // Handle Basic Inputs
     const handleChange = (e) => {
@@ -40,8 +40,8 @@ function CreatePerformance() {
         setSessions(newSessions);
     };
 
-    const handleLocationSelect = ({ lat, lng }) => {
-        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+    const handleLocationSelect = ({ lat, lng, address }) => {
+        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng, address: address || prev.address }));
     };
 
     const addSession = () => {
@@ -61,23 +61,21 @@ function CreatePerformance() {
         setLoading(true);
 
         try {
-            let posterUrl = null;
+            let posterUrl = '';
 
             // 1. Upload Image if exists
             if (posterFile) {
                 const fileExt = posterFile.name.split('.').pop();
-                const fileName = `${Date.now()}.${fileExt}`;
-                const { error: uploadError } = await supabase.storage
+                const fileName = `${Math.random()}.${fileExt}`;
+                const { data, error: uploadError } = await supabase.storage
                     .from('posters')
                     .upload(fileName, posterFile);
 
-                if (uploadError) throw new Error(`이미지 업로드 오류: ${uploadError.message}`);
+                if (uploadError) throw uploadError;
 
-                const { data: publicData } = supabase.storage
+                posterUrl = supabase.storage
                     .from('posters')
-                    .getPublicUrl(fileName);
-
-                posterUrl = publicData.publicUrl;
+                    .getPublicUrl(fileName).data.publicUrl;
             }
 
             // 2. Insert Performance
@@ -96,7 +94,8 @@ function CreatePerformance() {
                     total_seats: parseInt(formData.totalSeats) || 0,
                     poster_url: posterUrl,
                     latitude: formData.latitude,
-                    longitude: formData.longitude
+                    longitude: formData.longitude,
+                    address: formData.address
                 }])
                 .select()
                 .single();
@@ -167,12 +166,17 @@ function CreatePerformance() {
                         <label>공연 장소 (텍스트)</label>
                         <input type="text" name="location" value={formData.location} onChange={handleChange} required placeholder="예: 예술의전당" />
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-                            * 왼쪽에는 장소명을 입력하고, 오른쪽 지도에서 정확한 위치를 선택해주세요.
+                            * 왼쪽에는 장소명(예: 예술의전당)을 입력하고, 오른쪽 지도에서는 <b>도로명/지번 주소</b>를 검색하여 정확한 위치를 선택해주세요.
                         </p>
                     </div>
                     <div className="form-group">
                         <label>지도 위치 설정</label>
-                        <LocationPicker onLocationSelect={handleLocationSelect} />
+                        <LocationPicker
+                            initLat={formData.latitude}
+                            initLng={formData.longitude}
+                            initAddress={formData.address}
+                            onLocationSelect={handleLocationSelect}
+                        />
                     </div>
 
                     <div className="form-group">

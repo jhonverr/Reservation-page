@@ -58,7 +58,6 @@ export default function MapView({ lat, lng, locationName }) {
 
     return (
         <div className="map-view-container" style={{ marginTop: '1rem' }}>
-            <h4 style={{ marginBottom: '0.5rem', color: 'var(--text-primary)' }}>오시는 길</h4>
             <div
                 ref={mapElement}
                 style={{ width: '100%', height: '250px', borderRadius: '12px', border: '1px solid #eee', cursor: 'pointer' }}

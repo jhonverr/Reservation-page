@@ -23,7 +23,8 @@ function EditPerformance() {
         ageRating: 'all',
         totalSeats: '',
         latitude: null,
-        longitude: null
+        longitude: null,
+        address: ''
     });
 
     const [posterFile, setPosterFile] = useState(null);
@@ -59,7 +60,8 @@ function EditPerformance() {
                 ageRating: perf.age_rating,
                 totalSeats: perf.total_seats?.toString() || '0',
                 latitude: perf.latitude,
-                longitude: perf.longitude
+                longitude: perf.longitude,
+                address: perf.address || ''
             });
             setExistingPosterUrl(perf.poster_url);
 
@@ -93,8 +95,8 @@ function EditPerformance() {
         setSessions(newSessions);
     };
 
-    const handleLocationSelect = ({ lat, lng }) => {
-        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+    const handleLocationSelect = ({ lat, lng, address }) => {
+        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng, address: address || prev.address }));
     };
 
     const addSession = () => {
@@ -146,7 +148,8 @@ function EditPerformance() {
                     total_seats: parseInt(formData.totalSeats) || 0,
                     poster_url: posterUrl,
                     latitude: formData.latitude,
-                    longitude: formData.longitude
+                    longitude: formData.longitude,
+                    address: formData.address
                 })
                 .eq('id', id);
 
@@ -261,7 +264,7 @@ function EditPerformance() {
                         <label>공연 장소 (텍스트)</label>
                         <input type="text" name="location" value={formData.location} onChange={handleChange} required />
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-                            * 왼쪽에는 장소명을 입력하고, 오른쪽 지도에서 정확한 위치를 선택해주세요.
+                            * 왼쪽에는 장소명(예: 예술의전당)을 입력하고, 오른쪽 지도에서는 <b>도로명/지번 주소</b>를 검색하여 정확한 위치를 선택해주세요.
                         </p>
                     </div>
                     <div className="form-group">
@@ -270,6 +273,7 @@ function EditPerformance() {
                             <LocationPicker
                                 initLat={formData.latitude}
                                 initLng={formData.longitude}
+                                initAddress={formData.address}
                                 onLocationSelect={handleLocationSelect}
                             />
                         )}
