@@ -652,10 +652,11 @@ function Home() {
                                             </div>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
-                                            <span style={{ fontSize: '0.85rem', color: '#666', display: 'block', marginBottom: '0.3rem' }}>총 결제 금액</span>
+                                            <span style={{ fontSize: '0.85rem', color: '#666', display: 'block', marginBottom: '0.3rem' }}>총 티켓 금액</span>
                                             <span style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--accent-color)' }}>
                                                 {(formData.tickets * selectedPerf.price).toLocaleString()}원
                                             </span>
+                                            <p style={{ fontSize: '0.75rem', color: '#888', margin: '0.3rem 0 0 0' }}>* 결제는 현장에서 진행됩니다.</p>
                                         </div>
                                     </div>
 
