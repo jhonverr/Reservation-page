@@ -24,8 +24,49 @@ function ReservationStatus() {
 
 
     useEffect(() => {
+        cleanupOldData();
         fetchData();
     }, []);
+
+    async function cleanupOldData() {
+        // 1. Get all performances that ended more than 3 months ago
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+        const { data: oldPerfs } = await supabase
+            .from('performances')
+            .select('id, date_range');
+
+        if (!oldPerfs) return;
+
+        const targetPerfIds = oldPerfs.filter(p => {
+            const dateRange = p.date_range || '';
+            const parts = dateRange.split(' - ');
+            if (parts.length < 2) return false;
+
+            const endDateStr = parts[1].replace(/\./g, '-');
+            const endDate = new Date(endDateStr);
+
+            // Check if end date is valid and older than 3 months
+            return !isNaN(endDate) && endDate < threeMonthsAgo;
+        }).map(p => p.id);
+
+        if (targetPerfIds.length === 0) return;
+
+        // 2. Update phone numbers for reservations of these performances
+        // We only update if phone is not already '000-0000-0000' to save resources (though Supabase might handle it)
+        const { error } = await supabase
+            .from('reservations')
+            .update({ phone: '000-0000-0000' })
+            .in('performance_id', targetPerfIds)
+            .neq('phone', '000-0000-0000');
+
+        if (error) {
+            console.error('Data cleanup failed:', error);
+        } else {
+            console.log('Old data cleanup completed for performances:', targetPerfIds);
+        }
+    }
 
     async function fetchData() {
         setLoading(true);

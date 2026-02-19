@@ -35,6 +35,10 @@ function Home() {
         tickets: 1
     });
 
+    // Privacy State
+    const [privacyAgreed, setPrivacyAgreed] = useState(false);
+    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -304,6 +308,11 @@ function Home() {
         if (!isIdentified) {
             alert('먼저 핸드폰 번호를 입력해주세요.');
             setView('login');
+            return;
+        }
+
+        if (!privacyAgreed) {
+            alert('개인정보 수집 및 이용에 동의해주세요.');
             return;
         }
 
@@ -633,9 +642,14 @@ function Home() {
                                         />
                                     </div>
 
+                                    <div className="form-group">
+                                        <label>핸드폰 번호</label>
+                                        <input type="text" className="form-control" value={phone} disabled style={{ background: '#f8f9fa', color: '#888' }} />
+                                    </div>
+
                                     <div style={{
-                                        marginTop: '2rem',
-                                        padding: '1.2rem',
+                                        marginTop: '1.5rem',
+                                        padding: '1rem',
                                         background: '#f8f9fa',
                                         borderRadius: '12px',
                                         display: 'flex',
@@ -644,19 +658,93 @@ function Home() {
                                         gap: '1rem'
                                     }}>
                                         <div>
-                                            <label style={{ fontSize: '0.85rem', color: '#666', display: 'block', marginBottom: '0.8rem' }}>관람 인원</label>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                <button type="button" onClick={() => setFormData(prev => ({ ...prev, tickets: Math.max(1, prev.tickets - 1) }))} style={{ width: '34px', height: '34px', borderRadius: '50%', border: '1px solid #ddd', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>-</button>
-                                                <span style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{formData.tickets}</span>
-                                                <button type="button" onClick={() => setFormData(prev => ({ ...prev, tickets: Math.min(10, prev.tickets + 1) }))} style={{ width: '34px', height: '34px', borderRadius: '50%', border: '1px solid #ddd', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                                            <label style={{ fontSize: '0.85rem', color: '#666', display: 'block', marginBottom: '0.5rem' }}>관람 인원</label>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFormData(prev => ({ ...prev, tickets: Math.max(1, prev.tickets - 1) }))}
+                                                    style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        minHeight: '32px',
+                                                        maxHeight: '32px',
+                                                        borderRadius: '50%',
+                                                        border: '1px solid #ddd',
+                                                        background: '#fff',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '1.1rem',
+                                                        padding: '0',
+                                                        flexShrink: 0
+                                                    }}
+                                                >−</button>
+                                                <span style={{ fontSize: '1.1rem', fontWeight: 'bold', minWidth: '1rem', textAlign: 'center' }}>{formData.tickets}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFormData(prev => ({ ...prev, tickets: Math.min(10, prev.tickets + 1) }))}
+                                                    style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        minHeight: '32px',
+                                                        maxHeight: '32px',
+                                                        borderRadius: '50%',
+                                                        border: '1px solid #ddd',
+                                                        background: '#fff',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '1.1rem',
+                                                        padding: '0',
+                                                        flexShrink: 0
+                                                    }}
+                                                >+</button>
                                             </div>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
-                                            <span style={{ fontSize: '0.85rem', color: '#666', display: 'block', marginBottom: '0.3rem' }}>총 티켓 금액</span>
-                                            <span style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--accent-color)' }}>
+                                            <span style={{ fontSize: '0.85rem', color: '#666', display: 'block', marginBottom: '0.2rem' }}>총 금액</span>
+                                            <span style={{ fontSize: '1.4rem', fontWeight: '900', color: 'var(--accent-color)' }}>
                                                 {(formData.tickets * selectedPerf.price).toLocaleString()}원
                                             </span>
-                                            <p style={{ fontSize: '0.75rem', color: '#888', margin: '0.3rem 0 0 0' }}>* 결제는 현장에서 진행됩니다.</p>
+                                            <p style={{ fontSize: '0.75rem', color: '#888', margin: '0.2rem 0 0 0' }}>* 현장 결제</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group" style={{ marginBottom: '0.5rem', marginTop: '0.8rem' }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.4rem',
+                                        }}>
+                                            <input
+                                                type="checkbox"
+                                                id="privacy-agree"
+                                                checked={privacyAgreed}
+                                                onChange={(e) => setPrivacyAgreed(e.target.checked)}
+                                                style={{ cursor: 'pointer', width: '16px', height: '16px', minHeight: 'unset', padding: '0', flexShrink: 0 }}
+                                            />
+                                            <label htmlFor="privacy-agree" style={{ cursor: 'pointer', fontSize: '0.85rem', color: '#555', marginBottom: 0 }}>
+                                                [필수] 개인정보 수집 및 이용 동의
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPrivacyModal(true)}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: '#999',
+                                                    textDecoration: 'underline',
+                                                    fontSize: '0.8rem',
+                                                    cursor: 'pointer',
+                                                    padding: 0,
+                                                    minHeight: 'unset',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                자세히
+                                            </button>
                                         </div>
                                     </div>
 
@@ -672,7 +760,7 @@ function Home() {
                                                     style={{
                                                         width: '100%',
                                                         padding: '1rem',
-                                                        marginTop: '1.5rem',
+                                                        marginTop: '0.5rem',
                                                         fontSize: '1.1rem',
                                                         background: '#f0f0f0',
                                                         color: '#aaa',
@@ -695,7 +783,7 @@ function Home() {
                                                     style={{
                                                         width: '100%',
                                                         padding: '1rem',
-                                                        marginTop: '1.5rem',
+                                                        marginTop: '0.5rem',
                                                         fontSize: '1.1rem',
                                                         background: '#fff',
                                                         color: '#e74c3c', // Red text
@@ -722,7 +810,7 @@ function Home() {
                                                 type="submit"
                                                 className="submit-btn"
                                                 disabled={loading}
-                                                style={{ marginTop: '1.5rem' }}
+                                                style={{ marginTop: '0.5rem' }}
                                             >
                                                 {loading ? '처리 중...' : '예매하기'}
                                             </button>
@@ -872,6 +960,64 @@ function Home() {
                             </div>
                         )}
                     </section>
+                )}
+                {/* Privacy Policy Modal */}
+                {showPrivacyModal && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        background: 'rgba(0,0,0,0.5)',
+                        zIndex: 1000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '1.25rem',
+                        boxSizing: 'border-box'
+                    }} onClick={() => setShowPrivacyModal(false)}>
+                        <div style={{
+                            background: '#fff',
+                            width: '100%',
+                            maxWidth: '480px',
+                            borderRadius: '16px',
+                            padding: '1.5rem',
+                            position: 'relative',
+                            maxHeight: '85vh',
+                            overflowY: 'auto',
+                            boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                            boxSizing: 'border-box'
+                        }} onClick={e => e.stopPropagation()}>
+                            <h3 style={{ marginTop: 0, marginBottom: '1rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>개인정보 수집 및 이용 동의</h3>
+                            <div style={{ fontSize: '0.9rem', lineHeight: '1.6', color: '#444' }}>
+                                <p><strong>1. 수집 및 이용 목적</strong><br />
+                                    공연 예매 확인, 티켓 발권, 예매 내역 조회, 고객 상담 및 안내</p>
+                                <p><strong>2. 수집 항목</strong><br />
+                                    이름, 휴대전화번호</p>
+                                <p><strong>3. 보유 및 이용 기간</strong><br />
+                                    <span style={{ color: '#e74c3c', fontWeight: 'bold' }}>공연 종료 후 3개월까지</span> (단, 관계 법령에 따름)</p>
+                                <p><strong>4. 동의 거부 권리</strong><br />
+                                    귀하는 개인정보 수집 및 이용에 대한 동의를 거부할 권리가 있습니다. 단, 동의를 거부할 경우 예매가 불가능합니다.</p>
+                            </div>
+                            <button
+                                onClick={() => setShowPrivacyModal(false)}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.8rem',
+                                    background: 'var(--accent-color)',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontWeight: 'bold',
+                                    marginTop: '1.5rem',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                확인했습니다
+                            </button>
+                        </div>
+                    </div>
                 )}
             </main>
         </div >
