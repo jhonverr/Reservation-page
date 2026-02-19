@@ -54,17 +54,23 @@ function ReservationStatus() {
         if (targetPerfIds.length === 0) return;
 
         // 2. Update phone numbers for reservations of these performances
-        // We only update if phone is not already '000-0000-0000' to save resources (though Supabase might handle it)
-        const { error } = await supabase
+        const { error: resError } = await supabase
             .from('reservations')
             .update({ phone: '000-0000-0000' })
             .in('performance_id', targetPerfIds)
             .neq('phone', '000-0000-0000');
 
-        if (error) {
-            console.error('Data cleanup failed:', error);
+        // 3. Update phone numbers for reviews of these performances
+        const { error: revError } = await supabase
+            .from('performance_reviews')
+            .update({ user_phone: '000-0000-0000' })
+            .in('performance_id', targetPerfIds)
+            .neq('user_phone', '000-0000-0000');
+
+        if (resError || revError) {
+            console.error('Data cleanup failed:', resError || revError);
         } else {
-            console.log('Old data cleanup completed for performances:', targetPerfIds);
+            console.log('Old data cleanup completed (Reservations & Reviews) for performances:', targetPerfIds);
         }
     }
 
