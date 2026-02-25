@@ -1,0 +1,58 @@
+.admin-booking-group {
+    width: 95%;
+}
+
+@media (max-width: 768px) {
+    .admin-booking-group {
+        width: 90%;
+        padding: 1rem !important;
+    }
+    .desktop-only { display: none !important; }
+    .mobile-only { display: block !important; }
+    
+    .admin-header-row {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 1rem;
+    }
+    .admin-header-row > div:last-child {
+        text-align: left !important;
+        width: 100%;
+        padding-top: 0.5rem;
+        border-top: 1px dashed #eee;
+    }
+    .admin-actions-row {
+        justify-content: flex-start !important;
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+    .admin-actions-row > div {
+        width: 100%;
+    }
+    .admin-actions-row input {
+        width: 100% !important;
+    }
+    .manual-form-grid {
+        grid-template-columns: 1fr !important;
+        padding: 1rem !important;
+    }
+}
+
+@media (min-width: 769px) {
+    .mobile-only { display: none !important; }
+}
+
+.mobile-only { display: none; }
+
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+.reservation-row {
+    transition: all 0.4s ease-in-out;
+}
+
+.reservation-card {
+    transition: all 0.4s ease-in-out;
+}
