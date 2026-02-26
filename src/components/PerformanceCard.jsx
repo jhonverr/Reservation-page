@@ -64,8 +64,9 @@ const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact =
             <div style={{ position: 'relative', height: compact ? '220px' : '320px', overflow: 'hidden' }}>
                 {perf.poster_url && (
                     <img
-                        src={perf.poster_url}
+                        src={`https://wsrv.nl/?url=${encodeURIComponent(perf.poster_url)}`}
                         alt={perf.title}
+                        loading="lazy"
                         style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s' }}
                         className="perf-poster"
                     />

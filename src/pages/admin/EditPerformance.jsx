@@ -121,7 +121,10 @@ function EditPerformance() {
                 const fileName = `${Date.now()}.${fileExt}`;
                 const { error: uploadError } = await supabase.storage
                     .from('posters')
-                    .upload(fileName, posterFile);
+                    .upload(fileName, posterFile, {
+                        cacheControl: '31536000',
+                        upsert: false
+                    });
 
                 if (uploadError) throw new Error(`이미지 업로드 오류: ${uploadError.message}`);
 

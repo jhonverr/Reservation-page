@@ -69,7 +69,10 @@ function CreatePerformance() {
                 const fileName = `${Math.random()}.${fileExt}`;
                 const { data, error: uploadError } = await supabase.storage
                     .from('posters')
-                    .upload(fileName, posterFile);
+                    .upload(fileName, posterFile, {
+                        cacheControl: '31536000',
+                        upsert: false
+                    });
 
                 if (uploadError) throw uploadError;
 

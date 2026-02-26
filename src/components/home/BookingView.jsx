@@ -20,7 +20,7 @@ export default function BookingView({
     return (
         <section className="booking-detail perf-detail-grid">
             <div className="perf-info-panel">
-                {selectedPerf.poster_url && <img src={selectedPerf.poster_url} alt={selectedPerf.title} style={{ width: '100%', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }} />}
+                {selectedPerf.poster_url && <img src={`https://wsrv.nl/?url=${encodeURIComponent(selectedPerf.poster_url)}`} alt={selectedPerf.title} loading="lazy" style={{ width: '100%', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }} />}
                 <div style={{ marginTop: '2rem' }}>
                     <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>{selectedPerf.title}</h2>
                     <div style={{
