@@ -52,7 +52,10 @@ export default function useHomeData() {
 
     async function fetchPerformances() {
         const { data: perfData, error: perfError } = await supabase.from('performances').select('*');
-        const { data: sessionData } = await supabase.from('performance_sessions').select('*');
+        const { data: sessionData } = await supabase.from('performance_sessions')
+            .select('*')
+            .order('date', { ascending: true })
+            .order('time', { ascending: true });
 
         if (!perfError && perfData) {
             const combined = perfData.map(p => ({
@@ -107,7 +110,8 @@ export default function useHomeData() {
             .from('performance_sessions')
             .select('*')
             .eq('performance_id', perf.id)
-            .order('date', { ascending: true });
+            .order('date', { ascending: true })
+            .order('time', { ascending: true });
 
         if (!error && data) {
             setSessions(data);

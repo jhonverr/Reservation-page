@@ -89,7 +89,8 @@ export default function useReservationData() {
         const { data: sessionsData } = await supabase
             .from('performance_sessions')
             .select('*')
-            .order('date', { ascending: true });
+            .order('date', { ascending: true })
+            .order('time', { ascending: true });
 
         if (perfData) {
             const perfWithSessions = perfData.map(perf => ({
@@ -282,7 +283,6 @@ export default function useReservationData() {
                 booked,
                 totalPaid,
                 total: perf.total_seats,
-                isEnded
             };
         });
 
