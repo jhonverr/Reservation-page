@@ -37,8 +37,7 @@ const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact =
                 position: 'relative',
                 border: '1px solid #eee',
                 transition: 'all 0.3s ease',
-                opacity: isEnded ? 0.8 : 1,
-                filter: isEnded ? 'grayscale(0.6)' : 'none'
+                opacity: isEnded ? 0.9 : 1
             }}
             onClick={() => onSelect(perf)}
         >
@@ -61,7 +60,7 @@ const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact =
                 </div>
             )}
 
-            <div style={{ position: 'relative', height: compact ? '220px' : '320px', overflow: 'hidden' }}>
+            <div style={{ position: 'relative', height: compact ? '220px' : '320px', overflow: 'hidden', filter: isEnded ? 'grayscale(0.6)' : 'none' }}>
                 {perf.poster_url && (
                     <img
                         src={`https://wsrv.nl/?url=${encodeURIComponent(perf.poster_url)}`}
@@ -93,38 +92,41 @@ const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact =
             </div>
 
             <div style={{ padding: compact ? '1.1rem' : '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <h3 style={{ marginBottom: compact ? '0.6rem' : '1rem', fontSize: compact ? '1.2rem' : '1.5rem', fontWeight: '800', color: 'var(--text-primary)' }}>{perf.title}</h3>
-                <div style={{ fontSize: '0.85rem', color: isEnded ? '#888' : 'var(--text-secondary)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem 1rem', marginTop: '0.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <span style={{ fontSize: '1rem' }}>📅</span>
-                        <span>{perf.date_range}</span>
+                <div style={{ filter: isEnded ? 'grayscale(0.6)' : 'none' }}>
+                    <h3 style={{ marginBottom: compact ? '0.6rem' : '1rem', fontSize: compact ? '1.2rem' : '1.5rem', fontWeight: '800', color: 'var(--text-primary)' }}>{perf.title}</h3>
+                    <div style={{ fontSize: '0.85rem', color: isEnded ? '#888' : 'var(--text-secondary)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem 1rem', marginTop: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span style={{ fontSize: '1rem' }}>📅</span>
+                            <span>{perf.date_range}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span style={{ fontSize: '1rem' }}>⏰</span>
+                            <span>{perf.duration || '정보 없음'}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span style={{ fontSize: '1rem' }}>👥</span>
+                            <span>{perf.age_rating === 'all' ? '전체 관람가' : `${perf.age_rating}세 이상`}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span style={{ fontSize: '1rem' }}>🪑</span>
+                            <span>총 {perf.total_seats}석</span>
+                        </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <span style={{ fontSize: '1rem' }}>⏰</span>
-                        <span>{perf.duration || '정보 없음'}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <span style={{ fontSize: '1rem' }}>👥</span>
-                        <span>{perf.age_rating === 'all' ? '전체 관람가' : `${perf.age_rating}세 이상`}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <span style={{ fontSize: '1rem' }}>🪑</span>
-                        <span>총 {perf.total_seats}석</span>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        marginTop: '0.8rem',
+                        fontSize: '0.85rem',
+                        color: isEnded ? '#888' : 'var(--text-secondary)'
+                    }}>
+                        <span style={{ fontSize: '1rem' }}>📍</span>
+                        <span>{perf.location}</span>
                     </div>
                 </div>
+
                 <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    marginTop: '0.8rem',
-                    fontSize: '0.85rem',
-                    color: isEnded ? '#888' : 'var(--text-secondary)'
-                }}>
-                    <span style={{ fontSize: '1rem' }}>📍</span>
-                    <span>{perf.location}</span>
-                </div>
-                <div style={{
-                    marginTop: '1.2rem',
+                    marginTop: 'auto',
                     paddingTop: '1rem',
                     borderTop: '1px solid #f0f0f0',
                     display: 'flex',
@@ -138,13 +140,19 @@ const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact =
                         </>
                     ) : (
                         <span style={{
-                            fontSize: '0.8rem',
-                            color: '#999',
-                            border: '1px solid #ddd',
-                            padding: '0.3rem 0.8rem',
-                            borderRadius: '4px',
-                            fontWeight: 'bold'
-                        }}>관람평 작성 →</span>
+                            fontSize: '0.85rem',
+                            color: '#fff',
+                            background: 'var(--accent-color)',
+                            padding: '0.4rem 1rem',
+                            borderRadius: '20px',
+                            fontWeight: 'bold',
+                            boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem'
+                        }}>
+                            ✍️ 관람평 작성
+                        </span>
                     )}
                 </div>
             </div>

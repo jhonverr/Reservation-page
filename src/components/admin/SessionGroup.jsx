@@ -37,17 +37,20 @@ export default function SessionGroup({
                         ({group.session.date} {group.session.time})
                     </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: '0 1 auto', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    <span style={{ fontSize: '0.9rem', color: group.isEnded ? '#aaa' : '#555', fontWeight: 'bold' }}>
-                        결제: {group.totalPaid} / {group.booked}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: '0 1 auto', flexWrap: 'wrap', justifyContent: 'flex-end', marginTop: '0.2rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: group.isEnded ? '#aaa' : '#555', fontWeight: 'bold', whiteSpace: 'nowrap', background: '#eee', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                        결제 {group.totalPaid}/{group.booked}
                     </span>
-                    <span style={{ color: '#ccc', display: 'inline-block' }}>|</span>
                     <span style={{
-                        fontSize: '0.9rem',
+                        fontSize: '0.85rem',
                         color: group.isEnded ? '#aaa' : (occupancyRate >= 100 ? '#e74c3c' : '#2ecc71'),
-                        fontWeight: 'bold'
+                        fontWeight: 'bold',
+                        whiteSpace: 'nowrap',
+                        background: group.isEnded ? '#f5f5f5' : (occupancyRate >= 100 ? '#fceeee' : '#eafaf1'),
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: '4px'
                     }}>
-                        예매: {group.booked} / {group.total}석 <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>({occupancyRate}%)</span>
+                        예매 {group.booked}/{group.total} <span style={{ fontSize: '0.75rem', fontWeight: 'normal' }}>({occupancyRate}%)</span>
                     </span>
                 </div>
                 <span style={{ fontSize: '0.8rem', color: '#999', flexShrink: 0 }}>{isExpanded ? '▲' : '▼'}</span>

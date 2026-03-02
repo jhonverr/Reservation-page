@@ -8,11 +8,12 @@ export const isSessionEnded = (perf, session) => {
     if (!session.date) return false;
 
     const now = new Date();
+    // Replaces dots with dashes and removes white spaces (e.g. "2023.10.25" -> "2023-10-25")
     const dateStr = session.date.trim().replace(/\s+/g, '').replace(/\./g, '-');
     const cleanDateStr = dateStr.endsWith('-') ? dateStr.slice(0, -1) : dateStr;
 
     // Handle missing or localized time
-    let timeStr = session.time || '00:00';
+    let timeStr = session.time || '23:59';
     if (timeStr.includes('오후') || timeStr.includes('PM')) {
         const match = timeStr.match(/(\d+):(\d+)/);
         if (match) {
@@ -31,10 +32,20 @@ export const isSessionEnded = (perf, session) => {
 
     // Final HH:mm format check
     if (!/^\d{2}:\d{2}$/.test(timeStr)) {
-        timeStr = '00:00';
+        timeStr = '23:59'; // Default to end of day so it doesn't expire prematurely
     }
 
-    const startDateTime = new Date(`${cleanDateStr}T${timeStr}:00`);
+    const dateParts = cleanDateStr.split('-');
+    const year = parseInt(dateParts[0], 10);
+    const month = parseInt(dateParts[1], 10) - 1;
+    const day = parseInt(dateParts[2], 10);
+
+    const timeParts = timeStr.split(':');
+    const hour = parseInt(timeParts[0], 10);
+    const minute = parseInt(timeParts[1], 10);
+
+    // Create date using local time explicitly
+    const startDateTime = new Date(year, month, day, hour, minute, 0);
     if (isNaN(startDateTime.getTime())) return false;
 
     let durationMinutes = 0;
@@ -43,12 +54,10 @@ export const isSessionEnded = (perf, session) => {
         if (match) durationMinutes = parseInt(match[1]);
     }
 
-    // Add extra buffer (e.g. 3.5 hours = 210 mins) or just duration?
-    // Based on previous logic, it seems it was date + duration.
-    // The previous implementation used durationMinutes * 60000.
     const endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60000);
 
-    // In Home.jsx line 46: return now > endDateTime;
+    console.log(`[Date Debug] session_date: ${session.date}, session_time: ${session.time}, parsed_end: ${endDateTime.toISOString()}, now: ${now.toISOString()}`);
+
     return now > endDateTime;
 };
 

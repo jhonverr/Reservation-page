@@ -39,9 +39,27 @@ export default function HistoryView({ loading, userReservations, handleCancelRes
 
                     {endedReservations.length > 0 && (
                         <div style={{ marginTop: '1rem' }}>
-                            <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#999' }}>
-                                <span style={{ color: '#ccc' }}>●</span> 관람 완료 / 종료된 공연
-                            </h3>
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <h3 style={{ marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#999' }}>
+                                    <span style={{ color: '#ccc' }}>●</span> 관람 완료 / 종료된 공연
+                                </h3>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: '0.6rem',
+                                    fontSize: '0.8rem',
+                                    color: '#888',
+                                    background: '#f8f9fa',
+                                    padding: '0.8rem 1rem',
+                                    borderRadius: '8px',
+                                    border: '1px solid #eee',
+                                    lineHeight: '1.4',
+                                    wordBreak: 'keep-all'
+                                }}>
+                                    <span style={{ fontSize: '1.1rem', marginTop: '-0.1rem' }}>ℹ️</span>
+                                    <span>종료된 예매 내역은 개인정보 처리방침에 따라 <b>3개월 후 안전하게 자동 삭제</b>됩니다.</span>
+                                </div>
+                            </div>
                             <div className="grid-container" style={{
                                 display: 'grid',
                                 gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',

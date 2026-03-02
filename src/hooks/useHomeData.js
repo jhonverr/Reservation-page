@@ -62,6 +62,7 @@ export default function useHomeData() {
                 ...p,
                 sessions: sessionData?.filter(s => s.performance_id === p.id) || []
             }));
+            console.log('[Debug] Fetched Performances:', combined);
             setPerformances(combined);
         }
     }
@@ -354,7 +355,7 @@ export default function useHomeData() {
         if (error) {
             alert('예약 실패: ' + error.message);
         } else {
-            alert(`예약이 완료되었습니다!`);
+            alert('예약이 완료되었습니다! 🎉\n(공연 관람 후 본 페이지에서 소중한 관람평을 남겨주세요.)');
             fetchOccupancy();
             setView('history');
             fetchUserReservations();
