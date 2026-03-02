@@ -10,7 +10,7 @@ import { isSessionEnded } from '../utils/date';
  * @param {boolean} [props.isEnded=false] - Whether the performance is ended.
  * @param {boolean} [props.compact=false] - Whether to use a more compact layout.
  */
-const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact = false }) => {
+const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact = false, canReview = false }) => {
     // Helper to check if a performance is fully sold out across all REMAINING sessions
     const isPerformanceSoldOut = () => {
         if (!perf.sessions || perf.sessions.length === 0) return false;
@@ -141,12 +141,12 @@ const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact =
                     ) : (
                         <span style={{
                             fontSize: '0.85rem',
-                            color: '#fff',
-                            background: 'var(--accent-color)',
+                            color: canReview ? '#fff' : '#888',
+                            background: canReview ? 'var(--accent-color)' : '#e0e0e0',
                             padding: '0.4rem 1rem',
                             borderRadius: '20px',
                             fontWeight: 'bold',
-                            boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
+                            boxShadow: canReview ? '0 4px 10px rgba(0,0,0,0.15)' : 'none',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.4rem'

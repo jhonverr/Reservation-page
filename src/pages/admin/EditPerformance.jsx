@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import TimePicker from '../../components/TimePicker';
 import LocationPicker from '../../components/LocationPicker';
+import { formatPhone } from '../../utils/format';
 import '../../App.css';
 
 function EditPerformance() {
@@ -15,6 +16,7 @@ function EditPerformance() {
     const [formData, setFormData] = useState({
         title: '',
         description: '',
+        contactPhone: '',
         startDate: '',
         endDate: '',
         location: '',
@@ -52,6 +54,7 @@ function EditPerformance() {
             setFormData({
                 title: perf.title,
                 description: perf.description,
+                contactPhone: perf.contact_phone || '',
                 startDate: start,
                 endDate: end,
                 location: perf.location,
@@ -143,6 +146,7 @@ function EditPerformance() {
                 .update({
                     title: formData.title,
                     description: formData.description,
+                    contact_phone: formData.contactPhone,
                     date_range: dateRange,
                     location: formData.location,
                     price: parseInt(formData.price),
@@ -237,6 +241,16 @@ function EditPerformance() {
                     <div className="form-group">
                         <label>공연 제목</label>
                         <input type="text" name="title" value={formData.title} onChange={handleChange} required />
+                    </div>
+                    <div className="form-group">
+                        <label>공연 문의 전화번호 (숫자만 입력)</label>
+                        <input
+                            type="text"
+                            name="contactPhone"
+                            value={formatPhone(formData.contactPhone)}
+                            onChange={(e) => handleChange({ target: { name: 'contactPhone', value: e.target.value.replace(/[^0-9]/g, '') } })}
+                            placeholder="예: 000-0000-0000"
+                        />
                     </div>
                     <div className="form-group">
                         <label>공연 내용 (줄거리)</label>

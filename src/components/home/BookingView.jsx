@@ -1,7 +1,9 @@
+import { supabase } from '../../lib/supabase';
 import MapView from '../MapView';
 import ReviewSection from './ReviewSection';
 import { isSessionEnded } from '../../utils/date';
 import { getDayOfWeek } from '../../utils/date';
+import { formatPhone } from '../../utils/format';
 
 export default function BookingView({
     selectedPerf, sessions, occupancy,
@@ -26,7 +28,7 @@ export default function BookingView({
                     <div style={{
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '0.6rem',
+                        gap: '0.3rem',
                         marginBottom: '2rem',
                         fontSize: '0.95rem',
                         color: 'var(--text-secondary)'
@@ -42,6 +44,28 @@ export default function BookingView({
                             <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>💺</span>
                             <span><b>총 좌석:</b> 회차당 {selectedPerf.total_seats}석</span>
                         </p>
+                        {selectedPerf.contact_phone && (
+                            <p style={{
+                                margin: 0,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                marginTop: '0.2rem',
+                                background: 'rgba(255, 159, 67, 0.07)',
+                                padding: '0.45rem 0.75rem',
+                                borderRadius: '8px'
+                            }}>
+                                <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>📞</span>
+                                <span style={{ color: 'var(--text-secondary)' }}><b>공연 문의:</b></span>
+                                <a href={`tel:${selectedPerf.contact_phone}`} style={{
+                                    color: 'var(--accent-color)',
+                                    textDecoration: 'none',
+                                    fontWeight: '700'
+                                }}>
+                                    {formatPhone(selectedPerf.contact_phone)}
+                                </a>
+                            </p>
+                        )}
                     </div>
                     <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', whiteSpace: 'pre-line', marginBottom: '3.5rem' }}>{selectedPerf.description}</p>
                     <div style={{ marginBottom: '3rem', paddingTop: '1rem', borderTop: '1px solid #efefef' }}>
@@ -60,10 +84,10 @@ export default function BookingView({
                         )}
                     </div>
                 </div>
-            </div>
+            </div >
 
             {/* Booking Form Panel */}
-            <div className="perf-booking-panel">
+            < div className="perf-booking-panel" >
                 <div className="sticky-booking-card">
                     <h3>예매하기</h3>
                     <div style={{ marginBottom: '1.5rem' }}></div>
@@ -291,7 +315,7 @@ export default function BookingView({
                     handleDeleteReview={handleDeleteReview}
                     handleUpdateReview={handleUpdateReview}
                 />
-            </div>
-        </section>
+            </div >
+        </section >
     );
 }

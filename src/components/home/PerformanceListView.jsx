@@ -1,6 +1,6 @@
 import PerformanceCard from '../PerformanceCard';
 
-export default function PerformanceListView({ ongoingPerformances, endedPerformances, occupancy, handleSelectPerf }) {
+export default function PerformanceListView({ ongoingPerformances, endedPerformances, occupancy, handleSelectPerf, isIdentified, bookedPerfIds }) {
     return (
         <section className="performances-view">
             {/* Ongoing Performances */}
@@ -38,6 +38,7 @@ export default function PerformanceListView({ ongoingPerformances, endedPerforma
                                 occupancy={occupancy}
                                 onSelect={handleSelectPerf}
                                 isEnded={true}
+                                canReview={isIdentified && bookedPerfIds?.has(perf.id)}
                             />
                         ))}
                     </div>

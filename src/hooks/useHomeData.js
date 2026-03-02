@@ -35,6 +35,7 @@ export default function useHomeData() {
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
     const [loading, setLoading] = useState(false);
+    const [bookedPerfIds, setBookedPerfIds] = useState(new Set());
 
     useEffect(() => {
         fetchData();
@@ -44,6 +45,25 @@ export default function useHomeData() {
             setIsIdentified(true);
         }
     }, []);
+
+    // Fetch booked performance IDs when user is identified
+    useEffect(() => {
+        if (phone) {
+            fetchBookedPerfIds();
+        } else {
+            setBookedPerfIds(new Set());
+        }
+    }, [phone]);
+
+    async function fetchBookedPerfIds() {
+        const { data } = await supabase
+            .from('reservations')
+            .select('performance_id')
+            .eq('phone', phone);
+        if (data) {
+            setBookedPerfIds(new Set(data.map(r => r.performance_id)));
+        }
+    }
 
     async function fetchData() {
         await fetchPerformances();
@@ -399,7 +419,7 @@ export default function useHomeData() {
 
         // Data
         performances, ongoingPerformances, endedPerformances,
-        selectedPerf, sessions, userReservations, occupancy,
+        selectedPerf, sessions, userReservations, occupancy, bookedPerfIds,
 
         // Reviews
         reviews, canReview, hasReviewed,

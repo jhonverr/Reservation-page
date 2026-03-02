@@ -16,7 +16,7 @@ function Home() {
 
         // Data
         ongoingPerformances, endedPerformances,
-        selectedPerf, sessions, userReservations, occupancy,
+        selectedPerf, sessions, userReservations, occupancy, bookedPerfIds,
 
         // Reviews
         reviews, canReview, hasReviewed,
@@ -79,6 +79,8 @@ function Home() {
                         endedPerformances={endedPerformances}
                         occupancy={occupancy}
                         handleSelectPerf={handleSelectPerf}
+                        isIdentified={isIdentified}
+                        bookedPerfIds={bookedPerfIds}
                     />
                 )}
 
