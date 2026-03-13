@@ -70,10 +70,18 @@ export default function BookingView({
                     <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', whiteSpace: 'pre-line', marginBottom: '3.5rem' }}>{selectedPerf.description}</p>
                     <div style={{ marginBottom: '3rem', paddingTop: '1rem', borderTop: '1px solid #efefef' }}>
                         <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span>📍</span> 오시는 길
+                            <span>📍</span> 공연장 정보
                         </h3>
-                        <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', marginBottom: '1rem', paddingLeft: '0.5rem' }}>
-                            : {selectedPerf.location} {selectedPerf.address ? `(${selectedPerf.address})` : ''}
+                        <p
+                            style={{
+                                fontSize: '0.95rem',
+                                color: 'var(--text-secondary)',
+                                marginBottom: '1rem',
+                                paddingLeft: '0.5rem',
+                                whiteSpace: 'pre-line'
+                            }}
+                        >
+                            {selectedPerf.location}
                         </p>
                         {selectedPerf.latitude && selectedPerf.longitude && (
                             <MapView

@@ -114,14 +114,16 @@ const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact =
                     </div>
                     <div style={{
                         display: 'flex',
-                        alignItems: 'center',
+                        alignItems: 'flex-start',
                         gap: '0.4rem',
                         marginTop: '0.8rem',
+                        paddingBottom: '0.8rem',
+                        marginBottom: '0.4rem',
                         fontSize: '0.85rem',
                         color: isEnded ? '#888' : 'var(--text-secondary)'
                     }}>
-                        <span style={{ fontSize: '1rem' }}>📍</span>
-                        <span>{perf.location}</span>
+                        <span style={{ fontSize: '1rem', lineHeight: 1.4 }}>📍</span>
+                        <span style={{ whiteSpace: 'pre-line' }}>{perf.location}</span>
                     </div>
                 </div>
 

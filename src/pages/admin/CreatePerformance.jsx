@@ -28,6 +28,7 @@ function CreatePerformance() {
 
     const [posterFile, setPosterFile] = useState(null);
     const [sessions, setSessions] = useState([]);
+    const [useMap, setUseMap] = useState(false);
 
     // Handle Basic Inputs
     const handleChange = (e) => {
@@ -42,10 +43,6 @@ function CreatePerformance() {
         setSessions(newSessions);
     };
 
-    const handleLocationSelect = ({ lat, lng, address }) => {
-        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng, address: address || prev.address }));
-    };
-
     const addSession = () => {
         setSessions([...sessions, { date: '', time: '' }]);
     };
@@ -55,6 +52,10 @@ function CreatePerformance() {
             const newSessions = sessions.filter((_, i) => i !== index);
             setSessions(newSessions);
         }
+    };
+
+    const handleLocationSelect = ({ lat, lng, address }) => {
+        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng, address: address || prev.address }));
     };
 
     // Handle Submit
@@ -86,6 +87,10 @@ function CreatePerformance() {
             // 2. Insert Performance
             const dateRange = `${formData.startDate.replace(/-/g, '.')} - ${formData.endDate.replace(/-/g, '.')}`;
 
+            const latitude = useMap ? formData.latitude : null;
+            const longitude = useMap ? formData.longitude : null;
+            const address = useMap ? formData.address : null;
+
             const { data: perfData, error: perfError } = await supabase
                 .from('performances')
                 .insert([{
@@ -99,9 +104,9 @@ function CreatePerformance() {
                     age_rating: formData.ageRating,
                     total_seats: parseInt(formData.totalSeats) || 0,
                     poster_url: posterUrl,
-                    latitude: formData.latitude,
-                    longitude: formData.longitude,
-                    address: formData.address
+                    latitude,
+                    longitude,
+                    address
                 }])
                 .select()
                 .single();
@@ -158,7 +163,15 @@ function CreatePerformance() {
                     </div>
                     <div className="form-group">
                         <label>공연 내용 (줄거리)</label>
-                        <textarea name="description" value={formData.description} onChange={handleChange} required rows="4" placeholder="공연에 대한 설명을 입력하세요" style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', background: '#fff', border: '1px solid #ddd', color: 'var(--text-primary)' }} />
+                        <textarea
+                            name="description"
+                            value={formData.description}
+                            onChange={handleChange}
+                            required
+                            rows="8"
+                            placeholder="공연에 대한 설명을 입력하세요"
+                            style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', background: '#fff', border: '1px solid #ddd', color: 'var(--text-primary)' }}
+                        />
                     </div>
                 </div>
 
@@ -178,26 +191,17 @@ function CreatePerformance() {
 
                 {/* 3. 상세 정보 */}
                 <div className="admin-form-grid">
-                    <div className="form-group">
-                        <label>공연 장소 (텍스트)</label>
-                        <input type="text" name="location" value={formData.location} onChange={handleChange} required placeholder="예: 예술의전당" />
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-                            * 왼쪽에는 장소명(예: 예술의전당)을 입력하고, 오른쪽 지도에서는 <b>도로명/지번 주소</b>를 검색하여 정확한 위치를 선택해주세요.
-                        </p>
-                    </div>
-                    <div className="form-group">
-                        <label>지도 위치 설정</label>
-                        <LocationPicker
-                            initLat={formData.latitude}
-                            initLng={formData.longitude}
-                            initAddress={formData.address}
-                            onLocationSelect={handleLocationSelect}
-                        />
-                    </div>
-
+                    {/* 1행: 공연 길이, 관람 등급 */}
                     <div className="form-group">
                         <label>공연 길이 (예: 120분)</label>
-                        <input type="text" name="duration" value={formData.duration} onChange={handleChange} required placeholder="예: 120분 (인터미션 15분)" />
+                        <input
+                            type="text"
+                            name="duration"
+                            value={formData.duration}
+                            onChange={handleChange}
+                            required
+                            placeholder="예: 120분 (인터미션 15분)"
+                        />
                     </div>
                     <div className="form-group">
                         <label>관람 등급</label>
@@ -208,13 +212,88 @@ function CreatePerformance() {
                         </select>
                     </div>
 
+                    {/* 2행: 총 좌석수, 티켓 가격 */}
                     <div className="form-group">
                         <label>총 좌석수</label>
-                        <input type="number" name="totalSeats" value={formData.totalSeats} onChange={handleChange} required placeholder="예: 100" />
+                        <input
+                            type="number"
+                            name="totalSeats"
+                            value={formData.totalSeats}
+                            onChange={handleChange}
+                            required
+                            placeholder="예: 100"
+                        />
                     </div>
                     <div className="form-group">
                         <label>티켓 가격 (원)</label>
-                        <input type="number" name="price" value={formData.price} onChange={handleChange} required placeholder="예: 10000" />
+                        <input
+                            type="number"
+                            name="price"
+                            value={formData.price}
+                            onChange={handleChange}
+                            required
+                            placeholder="예: 10000"
+                        />
+                    </div>
+
+                    {/* 3행: 공연 장소 (텍스트) + 지도 옵션 - 가로 전체 사용 */}
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                        <label>공연 장소 (텍스트)</label>
+                        <textarea
+                            name="location"
+                            value={formData.location}
+                            onChange={handleChange}
+                            required
+                            rows="3"
+                            placeholder="예: 예술의전당 콘서트홀&#10;(주소, 층/호수, 입장 안내 등 자세히 적어주세요)"
+                            style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', background: '#fff', border: '1px solid #ddd', color: 'var(--text-primary)', whiteSpace: 'pre-line' }}
+                        />
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                            * 공연장 이름, 주소, 층/호수, 입장 위치 등 관객이 찾아오기 쉬운 정보를 자유롭게 입력해주세요.
+                        </p>
+
+                        <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dashed #eee' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <input
+                                    id="use-map-create"
+                                    type="checkbox"
+                                    checked={useMap}
+                                    onChange={(e) => {
+                                        const checked = e.target.checked;
+                                        setUseMap(checked);
+                                        if (!checked) {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                latitude: null,
+                                                longitude: null,
+                                                address: ''
+                                            }));
+                                        }
+                                    }}
+                                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                />
+                                <label
+                                    htmlFor="use-map-create"
+                                    style={{ cursor: 'pointer', fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: 0 }}
+                                >
+                                    네이버 지도로 공연장 위치 등록하기 (선택)
+                                </label>
+                            </div>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.35rem', marginBottom: useMap ? '0.5rem' : 0 }}>
+                                * 체크 시 예매 페이지 공연장 정보 하단에 지도가 함께 노출됩니다.
+                            </p>
+
+                            {useMap && (
+                                <div style={{ marginTop: '0.5rem' }}>
+                                    <LocationPicker
+                                        initLat={formData.latitude}
+                                        initLng={formData.longitude}
+                                        initAddress={formData.address}
+                                        onLocationSelect={handleLocationSelect}
+                                    />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 

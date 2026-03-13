@@ -44,6 +44,27 @@ export default function useHomeData() {
             setPhone(savedPhone);
             setIsIdentified(true);
         }
+
+        // Initialize history state for SPA-like back behavior
+        if (typeof window !== 'undefined' && window.history && !window.history.state) {
+            window.history.replaceState({ view: 'performances' }, '');
+        }
+
+        const handlePopState = () => {
+            // When user presses browser back from 예약(상세) 화면,
+            // 우선 SPA 내부에서 공연 정보 탭으로만 돌아가도록 처리
+            setView((prev) => (prev === 'reserve' ? 'performances' : prev));
+        };
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('popstate', handlePopState);
+        }
+
+        return () => {
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('popstate', handlePopState);
+            }
+        };
     }, []);
 
     // Fetch booked performance IDs when user is identified
@@ -224,6 +245,19 @@ export default function useHomeData() {
             fetchReviews(perf.id);
             checkReviewEligibility(perf.id);
             setView('reserve');
+
+            // Push a history entry so that browser Back stays within the app first
+            if (typeof window !== 'undefined' && window.history) {
+                try {
+                    window.history.pushState(
+                        { view: 'reserve', performanceId: perf.id },
+                        '',
+                        window.location.pathname
+                    );
+                } catch (e) {
+                    console.warn('Failed to push history state', e);
+                }
+            }
             window.scrollTo(0, 0);
         } catch (error) {
             console.error('Error selecting performance:', error);

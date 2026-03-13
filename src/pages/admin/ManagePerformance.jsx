@@ -31,13 +31,12 @@ function ManagePerformance() {
                 <Link to="/admin/dashboard/create" className="submit-btn" style={{ width: 'auto', padding: '0.6rem 1.2rem', textDecoration: 'none', display: 'inline-block', fontSize: '0.9rem' }}>+ 신규 공연 등록</Link>
             </div>
 
-            <div className="grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: '1.5rem' }}>
+            <div className="grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 380px), 1fr))', gap: '2.5rem' }}>
                 {performances.map(perf => (
                     <PerformanceCard
                         key={perf.id}
                         perf={perf}
                         onSelect={() => navigate(`/admin/dashboard/edit/${perf.id}`)}
-                        compact={true}
                     />
                 ))}
             </div>
