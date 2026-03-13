@@ -37,6 +37,8 @@ function ManagePerformance() {
                         key={perf.id}
                         perf={perf}
                         onSelect={() => navigate(`/admin/dashboard/edit/${perf.id}`)}
+                        showCopyButton
+                        onCopy={(p) => navigate('/admin/dashboard/create', { state: { copyFrom: p } })}
                     />
                 ))}
             </div>

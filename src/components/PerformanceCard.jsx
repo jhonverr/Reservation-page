@@ -9,8 +9,10 @@ import { isSessionEnded } from '../utils/date';
  * @param {Function} props.onSelect - Handler when card is clicked.
  * @param {boolean} [props.isEnded=false] - Whether the performance is ended.
  * @param {boolean} [props.compact=false] - Whether to use a more compact layout.
+ * @param {boolean} [props.showCopyButton=false] - Whether to show copy button (e.g. in admin).
+ * @param {Function} [props.onCopy] - Handler when copy button is clicked; receives perf.
  */
-const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact = false, canReview = false }) => {
+const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact = false, canReview = false, showCopyButton = false, onCopy }) => {
     // Helper to check if a performance is fully sold out across all REMAINING sessions
     const isPerformanceSoldOut = () => {
         if (!perf.sessions || perf.sessions.length === 0) return false;
@@ -58,6 +60,31 @@ const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact =
                 }}>
                     {isSoldOut ? '전석 매진' : '예매 가능'}
                 </div>
+            )}
+
+            {/* 복사 버튼 (관리자 공연 관리 탭 등) */}
+            {showCopyButton && onCopy && (
+                <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onCopy(perf); }}
+                    style={{
+                        position: 'absolute',
+                        top: '1rem',
+                        right: '1rem',
+                        zIndex: 3,
+                        padding: '0.4rem 0.8rem',
+                        borderRadius: '8px',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        background: '#fff',
+                        color: 'var(--accent-color)',
+                        border: '1px solid var(--accent-color)',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                    }}
+                >
+                    복사
+                </button>
             )}
 
             <div style={{ position: 'relative', height: compact ? '220px' : '320px', overflow: 'hidden', filter: isEnded ? 'grayscale(0.6)' : 'none' }}>
@@ -178,7 +205,9 @@ PerformanceCard.propTypes = {
     occupancy: PropTypes.object,
     onSelect: PropTypes.func.isRequired,
     isEnded: PropTypes.bool,
-    compact: PropTypes.bool
+    compact: PropTypes.bool,
+    showCopyButton: PropTypes.bool,
+    onCopy: PropTypes.func
 };
 
 export default PerformanceCard;

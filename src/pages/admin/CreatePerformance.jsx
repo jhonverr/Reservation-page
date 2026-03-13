@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import TimePicker from '../../components/TimePicker';
 import LocationPicker from '../../components/LocationPicker';
@@ -8,6 +8,7 @@ import '../../App.css';
 
 function CreatePerformance() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [loading, setLoading] = useState(false);
 
     // Form States
@@ -23,12 +24,41 @@ function CreatePerformance() {
         ageRating: 'all', // all, 15, 19
         totalSeats: '',
         latitude: null,
-        longitude: null
+        longitude: null,
+        address: ''
     });
 
     const [posterFile, setPosterFile] = useState(null);
+    const [copiedPosterUrl, setCopiedPosterUrl] = useState('');
     const [sessions, setSessions] = useState([]);
     const [useMap, setUseMap] = useState(false);
+
+    // 복사한 공연 정보로 폼 채우기 (공연 기간·회차는 비움)
+    useEffect(() => {
+        const copyFrom = location.state?.copyFrom;
+        if (!copyFrom) return;
+
+        setCopiedPosterUrl(copyFrom.poster_url ?? '');
+        setFormData({
+            title: copyFrom.title ?? '',
+            description: copyFrom.description ?? '',
+            contactPhone: copyFrom.contact_phone ?? '',
+            startDate: '',
+            endDate: '',
+            location: copyFrom.location ?? '',
+            price: copyFrom.price != null ? String(copyFrom.price) : '',
+            duration: copyFrom.duration ?? '',
+            ageRating: copyFrom.age_rating ?? 'all',
+            totalSeats: copyFrom.total_seats != null ? String(copyFrom.total_seats) : '',
+            latitude: copyFrom.latitude ?? null,
+            longitude: copyFrom.longitude ?? null,
+            address: copyFrom.address ?? ''
+        });
+        setUseMap(!!(copyFrom.latitude != null && copyFrom.longitude != null));
+
+        // state 소비해서 새로고침 시 복사 데이터 반복 적용 방지 (선택)
+        window.history.replaceState({}, document.title, location.pathname);
+    }, []);
 
     // Handle Basic Inputs
     const handleChange = (e) => {
@@ -66,7 +96,7 @@ function CreatePerformance() {
         try {
             let posterUrl = '';
 
-            // 1. Upload Image if exists
+            // 1. 포스터: 새 파일 업로드 또는 복사된 URL 사용
             if (posterFile) {
                 const fileExt = posterFile.name.split('.').pop();
                 const fileName = `${Math.random()}.${fileExt}`;
@@ -82,6 +112,8 @@ function CreatePerformance() {
                 posterUrl = supabase.storage
                     .from('posters')
                     .getPublicUrl(fileName).data.publicUrl;
+            } else if (copiedPosterUrl) {
+                posterUrl = copiedPosterUrl;
             }
 
             // 2. Insert Performance
@@ -179,13 +211,23 @@ function CreatePerformance() {
                 <div className="form-section">
                     <h3>포스터 이미지</h3>
                     <div className="form-group">
+                        {copiedPosterUrl && (
+                            <div style={{ marginBottom: '1rem' }}>
+                                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>복사된 포스터가 적용됩니다. 변경하려면 새 이미지를 선택하세요.</p>
+                                <img src={copiedPosterUrl.startsWith('http') ? copiedPosterUrl : `https://wsrv.nl/?url=${encodeURIComponent(copiedPosterUrl)}`} alt="복사된 포스터" style={{ maxWidth: '200px', borderRadius: '8px', border: '1px solid #eee' }} />
+                            </div>
+                        )}
                         <input
                             type="file"
                             accept="image/*"
-                            onChange={(e) => setPosterFile(e.target.files[0])}
-                            required
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                setPosterFile(file || null);
+                                if (file) setCopiedPosterUrl('');
+                            }}
+                            required={!copiedPosterUrl}
                         />
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>* 2MB 이하의 이미지 파일</p>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>* 2MB 이하의 이미지 파일 {copiedPosterUrl && '(선택 사항)'}</p>
                     </div>
                 </div>
 
