@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { isSessionEnded } from '../utils/date';
+import { isSessionEnded, isReviewTimeReached } from '../utils/date';
 
 export default function useHomeData() {
     // UI States
@@ -173,6 +173,8 @@ export default function useHomeData() {
                     time: firstActive ? firstActive.time : ''
                 }));
             }
+            // 세션 데이터를 가져온 후 관람평 작성 권한(및 노출 여부)을 한 번 더 체크
+            checkReviewEligibility(perf.id, data, perf);
         }
     }
 
@@ -187,9 +189,14 @@ export default function useHomeData() {
         }
     }
 
-    async function checkReviewEligibility(perfId) {
+    async function checkReviewEligibility(perfId, currentSessions = sessions, currentPerf = selectedPerf) {
+        // 1. 시간 기반 노출 여부 체크 (로그인 여부와 상관없이)
+        // currentPerf가 없으면 최소한의 객체라도 전달 (duration이 없으면 기본값 0분으로 계산됨)
+        const isTimeReached = isReviewTimeReached(currentPerf || { id: perfId }, currentSessions);
+
         if (!phone) {
-            setCanReview(false);
+            // 로그인하지 않은 경우, "시간이 되었으면" 작성 폼을 보여줌
+            setCanReview(isTimeReached);
             setHasReviewed(false);
             return;
         }
@@ -206,7 +213,8 @@ export default function useHomeData() {
             return sessionTime <= now;
         });
 
-        setCanReview(hasAttended);
+        // 2. 로그인한 경우: 참석했거나 노출 시간이 되었으면 폼을 보여줌
+        setCanReview(hasAttended || isTimeReached);
 
         if (hasAttended) {
             const { data: revData, error: revError } = await supabase
@@ -251,7 +259,7 @@ export default function useHomeData() {
             });
             fetchSessions(perf);
             fetchReviews(perf.id);
-            checkReviewEligibility(perf.id);
+            checkReviewEligibility(perf.id, [], perf);
             setView('reserve');
 
             // Push a history entry so that browser Back stays within the app first
@@ -277,12 +285,35 @@ export default function useHomeData() {
         e.preventDefault();
         const content = e.target.content.value.trim();
         if (!content) return;
+
+        // 로그인 여부 체크 (핸드폰 번호 및 인증 상태 확인)
+        if (!phone || !isIdentified) {
+            alert('관람평 작성을 위해서는 공연 관람하신 분의 로그인이 필요합니다!');
+            setView('login');
+            return;
+        }
+
         if (hasReviewed) {
             alert('이미 관람평을 작성하셨습니다.');
             return;
         }
 
         setLoading(true);
+
+        // 실제 예매 여부 확인
+        const { data: resData, error: resError } = await supabase
+            .from('reservations')
+            .select('id')
+            .eq('performance_id', selectedPerf.id)
+            .eq('phone', phone)
+            .limit(1);
+
+        if (resError || !resData || resData.length === 0) {
+            alert('관람평은 공연을 예매하신 분에 한해서 작성이 가능합니다!');
+            setLoading(false);
+            return;
+        }
+
         const last4Digits = phone.slice(-4);
 
         const { error } = await supabase
