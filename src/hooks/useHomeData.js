@@ -103,7 +103,15 @@ export default function useHomeData() {
                 ...p,
                 sessions: sessionData?.filter(s => s.performance_id === p.id) || []
             }));
-            console.log('[Debug] Fetched Performances:', combined);
+
+            // 날짜 기준 최신순 정렬 (첫 번째 세션 날짜 기준 내림차순)
+            combined.sort((a, b) => {
+                const dateAStr = a.sessions[0]?.date?.replace(/\./g, '-') || '0000-00-00';
+                const dateBStr = b.sessions[0]?.date?.replace(/\./g, '-') || '0000-00-00';
+                return new Date(dateBStr) - new Date(dateAStr);
+            });
+
+            console.log('[Debug] Fetched & Sorted Performances:', combined);
             setPerformances(combined);
         }
     }

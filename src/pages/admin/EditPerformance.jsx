@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import TimePicker from '../../components/TimePicker';
 import LocationPicker from '../../components/LocationPicker';
 import { formatPhone } from '../../utils/format';
+import { compressImage } from '../../utils/image';
 import '../../App.css';
 
 function EditPerformance() {
@@ -122,11 +123,13 @@ function EditPerformance() {
 
             // 1. Upload new image if exists
             if (posterFile) {
-                const fileExt = posterFile.name.split('.').pop();
+                // Compress image before upload
+                const compressedFile = await compressImage(posterFile, { maxSizeMB: 1, maxWidth: 1200 });
+                const fileExt = 'webp'; // compressImage returns webp
                 const fileName = `${Date.now()}.${fileExt}`;
                 const { error: uploadError } = await supabase.storage
                     .from('posters')
-                    .upload(fileName, posterFile, {
+                    .upload(fileName, compressedFile, {
                         cacheControl: '31536000',
                         upsert: false
                     });
