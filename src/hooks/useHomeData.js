@@ -218,7 +218,8 @@ export default function useHomeData(navigatePath = () => {}) {
         navigatePath('/');
     };
 
-    const handleSelectPerf = async (perf) => {
+    const handleSelectPerf = async (perf, options = {}) => {
+        const { updatePath = true, scrollToTop = true } = options;
         try {
             const { data: latestPerf } = await supabase
                 .from('performances')
@@ -240,20 +241,12 @@ export default function useHomeData(navigatePath = () => {}) {
             fetchReviews(detailPerf.id);
             checkReviewEligibility(detailPerf.id, [], detailPerf);
             setView('reserve');
-
-            // Push a history entry so that browser Back stays within the app first
-            if (typeof window !== 'undefined' && window.history) {
-                try {
-                    window.history.pushState(
-                        { view: 'reserve', performanceId: perf.id },
-                        '',
-                        window.location.pathname
-                    );
-                } catch (e) {
-                    console.warn('Failed to push history state', e);
-                }
+            if (updatePath) {
+                navigatePath(`/performance/${detailPerf.id}`);
             }
-            window.scrollTo(0, 0);
+            if (scrollToTop && typeof window !== 'undefined') {
+                window.scrollTo(0, 0);
+            }
         } catch (error) {
             console.error('Error selecting performance:', error);
             alert('공연 정보를 불러오는 중 오류가 발생했습니다.');
@@ -464,27 +457,6 @@ export default function useHomeData(navigatePath = () => {}) {
 
     useEffect(() => {
         fetchData();
-
-        // Initialize history state for SPA-like back behavior
-        if (typeof window !== 'undefined' && window.history && !window.history.state) {
-            window.history.replaceState({ view: 'performances' }, '');
-        }
-
-        const handlePopState = () => {
-            // When user presses browser back from 예약(상세) 화면,
-            // 우선 SPA 내부에서 공연 정보 탭으로만 돌아가도록 처리
-            setView((prev) => (prev === 'reserve' ? 'performances' : prev));
-        };
-
-        if (typeof window !== 'undefined') {
-            window.addEventListener('popstate', handlePopState);
-        }
-
-        return () => {
-            if (typeof window !== 'undefined') {
-                window.removeEventListener('popstate', handlePopState);
-            }
-        };
         // Initial app bootstrap only.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);

@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import useHomeData from '../hooks/useHomeData';
 import LoginView from '../components/home/LoginView';
 import PerformanceListView from '../components/home/PerformanceListView';
@@ -11,6 +11,7 @@ import '../App.css';
 function Home() {
     const location = useLocation();
     const navigate = useNavigate();
+    const { performanceId } = useParams();
     const navigatePath = useCallback((path) => {
         if (location.pathname !== path) navigate(path);
     }, [location.pathname, navigate]);
@@ -23,7 +24,7 @@ function Home() {
         loading,
 
         // Data
-        ongoingPerformances, endedPerformances,
+        performances, ongoingPerformances, endedPerformances,
         selectedPerf, sessions, userReservations, occupancy, bookedPerfIds,
 
         // Reviews
@@ -81,12 +82,33 @@ function Home() {
             return;
         }
 
-        if (view !== 'reserve') {
-            setView('performances');
+        if (performanceId) {
+            const parsedId = Number(performanceId);
+            if (!Number.isInteger(parsedId)) {
+                setView('performances');
+                navigate('/', { replace: true });
+                return;
+            }
+
+            if (selectedPerf?.id === parsedId) {
+                setView('reserve');
+                return;
+            }
+
+            const routePerf = performances.find(perf => perf.id === parsedId);
+            if (routePerf) {
+                handleSelectPerf(routePerf, { updatePath: false, scrollToTop: false });
+            } else if (performances.length > 0) {
+                setView('performances');
+                navigate('/', { replace: true });
+            }
+            return;
         }
+
+        setView('performances');
         // Route changes are the source of truth for top-level home tabs.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [location.pathname, isIdentified]);
+    }, [location.pathname, performanceId, performances, selectedPerf?.id, isIdentified]);
 
     return (
         <div className="container">
