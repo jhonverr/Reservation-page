@@ -7,7 +7,7 @@ export default function PerformanceListView({ ongoingPerformances, endedPerforma
             <div style={{ marginBottom: '4rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
                     <h2 style={{ margin: 0 }}>진행 중인 공연</h2>
-                    <span style={{ padding: '0.4rem 0.8rem', background: 'var(--accent-color)', color: '#fff', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <span className="status-chip status-chip-primary">
                         {ongoingPerformances.length}건
                     </span>
                 </div>

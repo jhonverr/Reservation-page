@@ -1,4 +1,3 @@
-import { supabase } from '../../lib/supabase';
 import MapView from '../MapView';
 import ReviewSection from './ReviewSection';
 import { isSessionEnded } from '../../utils/date';
@@ -18,6 +17,10 @@ export default function BookingView({
     submitReview, handleDeleteReview, handleUpdateReview
 }) {
     if (!selectedPerf) return null;
+
+    const visibleSessions = sessions.length > 0 ? sessions : selectedPerf.sessions || [];
+    const selectedSession = visibleSessions.find(s => s.date === formData.date && s.time === formData.time);
+    const castingInfo = selectedSession?.casting_info ? String(selectedSession.casting_info).trim() : '';
 
     return (
         <section className="booking-detail perf-detail-grid">
@@ -103,19 +106,18 @@ export default function BookingView({
                         <div className="form-group">
                             <label>날짜</label>
                             <select
+                                className="form-control-sm"
                                 name="date"
                                 value={formData.date}
                                 onChange={(e) => {
                                     const newDate = e.target.value;
-                                    const firstValidSession = sessions.filter(s => s.date === newDate).find(s => !isSessionEnded(selectedPerf, s));
                                     setFormData(prev => ({
                                         ...prev,
                                         date: newDate,
-                                        time: firstValidSession ? firstValidSession.time : ''
+                                        time: ''
                                     }));
                                 }}
                                 required
-                                style={{ padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%' }}
                             >
                                 {[...new Set(sessions.map(s => s.date))].map(date => (
                                     <option key={date} value={date}>{date} ({getDayOfWeek(date)})</option>
@@ -162,24 +164,41 @@ export default function BookingView({
                                     );
                                 })}
                             </div>
+                            {castingInfo && (
+                                <div style={{
+                                    marginTop: '0.8rem',
+                                    padding: '0.9rem 1rem',
+                                    background: 'rgba(255, 159, 67, 0.07)',
+                                    border: '1px solid rgba(255, 159, 67, 0.18)',
+                                    borderRadius: '12px',
+                                    color: 'var(--text-primary)'
+                                }}>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--accent-color)', fontWeight: 800, marginBottom: '0.45rem' }}>
+                                        캐스팅
+                                    </div>
+                                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.55, whiteSpace: 'pre-line' }}>
+                                        {castingInfo}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="form-group">
                             <label>예매자명</label>
                             <input
+                                className="form-control-sm"
                                 type="text"
                                 name="name"
                                 value={formData.name}
                                 onChange={handleChange}
                                 placeholder="홍길동"
                                 required
-                                style={{ padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%' }}
                             />
                         </div>
 
                         <div className="form-group">
                             <label>핸드폰 번호</label>
-                            <input type="text" className="form-control" value={phone} disabled style={{ background: '#f8f9fa', color: '#888' }} />
+                            <input type="text" className="form-control-sm" value={formatPhone(phone)} disabled style={{ background: '#f8f9fa', color: '#888' }} />
                         </div>
 
                         <div style={{
@@ -197,24 +216,16 @@ export default function BookingView({
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                                     <button
                                         type="button"
+                                        className="btn btn-secondary btn-icon-circle"
                                         onClick={() => setFormData(prev => ({ ...prev, tickets: Math.max(1, prev.tickets - 1) }))}
-                                        style={{
-                                            width: '32px', height: '32px', minHeight: '32px', maxHeight: '32px',
-                                            borderRadius: '50%', border: '1px solid #ddd', background: '#fff',
-                                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: '1.1rem', padding: '0', flexShrink: 0
-                                        }}
+                                        style={{ fontSize: '1.1rem' }}
                                     >−</button>
                                     <span style={{ fontSize: '1.1rem', fontWeight: 'bold', minWidth: '1rem', textAlign: 'center' }}>{formData.tickets}</span>
                                     <button
                                         type="button"
+                                        className="btn btn-secondary btn-icon-circle"
                                         onClick={() => setFormData(prev => ({ ...prev, tickets: Math.min(10, prev.tickets + 1) }))}
-                                        style={{
-                                            width: '32px', height: '32px', minHeight: '32px', maxHeight: '32px',
-                                            borderRadius: '50%', border: '1px solid #ddd', background: '#fff',
-                                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: '1.1rem', padding: '0', flexShrink: 0
-                                        }}
+                                        style={{ fontSize: '1.1rem' }}
                                     >+</button>
                                 </div>
                             </div>
@@ -241,12 +252,9 @@ export default function BookingView({
                                 </label>
                                 <button
                                     type="button"
+                                    className="link-button"
                                     onClick={() => setShowPrivacyModal(true)}
-                                    style={{
-                                        background: 'none', border: 'none', color: '#999',
-                                        textDecoration: 'underline', fontSize: '0.8rem',
-                                        cursor: 'pointer', padding: 0, minHeight: 'unset', whiteSpace: 'nowrap'
-                                    }}
+                                    style={{ whiteSpace: 'nowrap' }}
                                 >
                                     자세히
                                 </button>
@@ -262,11 +270,10 @@ export default function BookingView({
                                     <button
                                         type="button"
                                         disabled
+                                        className="btn btn-muted btn-full"
                                         style={{
-                                            width: '100%', padding: '1rem', marginTop: '0.5rem',
-                                            fontSize: '1.1rem', background: '#f0f0f0', color: '#aaa',
-                                            border: '1px solid #ddd', borderRadius: '12px',
-                                            cursor: 'not-allowed', fontWeight: 'bold'
+                                            padding: '1rem', marginTop: '0.5rem',
+                                            fontSize: '1.1rem'
                                         }}
                                     >
                                         이미 종료된 공연/회차입니다
@@ -278,17 +285,12 @@ export default function BookingView({
                                 return (
                                     <button
                                         type="button"
+                                        className="btn btn-outline btn-full"
                                         onClick={() => setView('login')}
                                         style={{
-                                            width: '100%', padding: '1rem', marginTop: '0.5rem',
-                                            fontSize: '1.1rem', background: '#fff',
-                                            color: '#e74c3c', border: '1px solid #e74c3c',
-                                            borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold',
-                                            transition: 'all 0.2s',
-                                            display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem'
+                                            padding: '1rem', marginTop: '0.5rem',
+                                            fontSize: '1.1rem'
                                         }}
-                                        onMouseEnter={(e) => { e.target.style.background = '#fff5f5'; }}
-                                        onMouseLeave={(e) => { e.target.style.background = '#fff'; }}
                                     >
                                         <span style={{ fontSize: '1.2rem' }}>🔒</span> 로그인 후 예매하기
                                     </button>

@@ -24,6 +24,7 @@ function CreatePerformance() {
         duration: '',
         ageRating: 'all', // all, 15, 19
         totalSeats: '',
+        castingMode: 'single',
         latitude: null,
         longitude: null,
         address: ''
@@ -51,6 +52,7 @@ function CreatePerformance() {
             duration: copyFrom.duration ?? '',
             ageRating: copyFrom.age_rating ?? 'all',
             totalSeats: copyFrom.total_seats != null ? String(copyFrom.total_seats) : '',
+            castingMode: copyFrom.casting_mode ?? 'single',
             latitude: copyFrom.latitude ?? null,
             longitude: copyFrom.longitude ?? null,
             address: copyFrom.address ?? ''
@@ -67,6 +69,13 @@ function CreatePerformance() {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleMultiCastingToggle = (e) => {
+        setFormData(prev => ({
+            ...prev,
+            castingMode: e.target.checked ? 'multi' : 'single'
+        }));
+    };
+
     // Handle Session Changes
     const handleSessionChange = (index, field, value) => {
         const newSessions = [...sessions];
@@ -75,7 +84,7 @@ function CreatePerformance() {
     };
 
     const addSession = () => {
-        setSessions([...sessions, { date: '', time: '' }]);
+        setSessions([...sessions, { date: '', time: '', castingInfo: '' }]);
     };
 
     const removeSession = (index) => {
@@ -103,7 +112,7 @@ function CreatePerformance() {
                 const compressedFile = await compressImage(posterFile, { maxSizeMB: 1, maxWidth: 1200 });
                 const fileExt = 'webp'; // compressImage returns webp
                 const fileName = `${Math.random()}.${fileExt}`;
-                const { data, error: uploadError } = await supabase.storage
+                const { error: uploadError } = await supabase.storage
                     .from('posters')
                     .upload(fileName, compressedFile, {
                         cacheControl: '31536000',
@@ -138,6 +147,8 @@ function CreatePerformance() {
                     duration: formData.duration,
                     age_rating: formData.ageRating,
                     total_seats: parseInt(formData.totalSeats) || 0,
+                    casting_mode: formData.castingMode,
+                    casting_info: null,
                     poster_url: posterUrl,
                     latitude,
                     longitude,
@@ -153,7 +164,8 @@ function CreatePerformance() {
                 const sessionData = sessions.map(session => ({
                     performance_id: perfData.id,
                     date: session.date,
-                    time: session.time
+                    time: session.time,
+                    casting_info: formData.castingMode === 'multi' ? session.castingInfo || null : null
                 }));
 
                 const { error: sessionError } = await supabase
@@ -370,9 +382,19 @@ function CreatePerformance() {
 
                 {/* 5. 회차 정보 */}
                 <div className="form-section" style={{ marginTop: '2rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div className="session-section-header">
                         <h3>회차 정보</h3>
-                        <button type="button" onClick={addSession} style={{ background: 'var(--accent-color)', border: 'none', padding: '0.5rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', color: 'white' }}>+ 회차 추가</button>
+                        <div className="session-section-actions">
+                            <label className="casting-toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.castingMode === 'multi'}
+                                    onChange={handleMultiCastingToggle}
+                                />
+                                <span>멀티 캐스팅</span>
+                            </label>
+                            <button type="button" onClick={addSession} style={{ background: 'var(--accent-color)', border: 'none', padding: '0.5rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', color: 'white' }}>+ 회차 추가</button>
+                        </div>
                     </div>
 
                     {sessions.map((session, index) => (
@@ -390,6 +412,15 @@ function CreatePerformance() {
                                 value={session.time}
                                 onChange={(newTime) => handleSessionChange(index, 'time', newTime)}
                             />
+                            {formData.castingMode === 'multi' && (
+                                <textarea
+                                    value={session.castingInfo || ''}
+                                    onChange={(e) => handleSessionChange(index, 'castingInfo', e.target.value)}
+                                    rows="2"
+                                    placeholder="이 회차 캐스팅"
+                                    style={{ flex: '1 1 220px', minWidth: '220px', padding: '0.8rem', borderRadius: '8px', background: '#fff', border: '1px solid #ddd', color: 'var(--text-primary)', resize: 'vertical' }}
+                                />
+                            )}
                             {sessions.length > 1 && (
                                 <button
                                     type="button"
@@ -441,6 +472,36 @@ function CreatePerformance() {
                     padding: 1.25rem;
                     border-radius: 12px;
                 }
+                .session-section-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 1rem;
+                    margin-bottom: 1rem;
+                    flex-wrap: wrap;
+                }
+                .session-section-actions {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.8rem;
+                    flex-wrap: wrap;
+                }
+                .casting-toggle {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin: 0;
+                    color: var(--text-primary);
+                    font-weight: 700;
+                    cursor: pointer;
+                }
+                .casting-toggle input {
+                    width: 16px;
+                    height: 16px;
+                    min-height: unset;
+                    padding: 0;
+                    accent-color: var(--accent-color);
+                }
                 @media (max-width: 768px) {
                     .admin-form-grid {
                         grid-template-columns: 1fr;
@@ -449,11 +510,48 @@ function CreatePerformance() {
                     .session-entry {
                         flex-direction: column;
                         align-items: stretch;
-                        gap: 0.8rem;
-                        padding: 1rem;
+                        gap: 0.5rem;
+                        margin-bottom: 0.75rem;
+                        padding: 0.75rem;
                     }
                     .session-entry > input {
                         width: 100%;
+                        min-height: 40px;
+                        padding: 0.55rem 0.7rem;
+                        box-sizing: border-box;
+                    }
+                    .session-entry .time-picker {
+                        width: 100%;
+                        gap: 0.35rem !important;
+                    }
+                    .session-entry .time-picker select {
+                        width: auto;
+                        min-width: 0;
+                        flex: 1;
+                        min-height: 40px;
+                        padding: 0.55rem 2rem 0.55rem 0.7rem !important;
+                    }
+                    .session-section-header,
+                    .session-section-actions {
+                        align-items: center;
+                    }
+                    .session-section-header {
+                        gap: 0.5rem;
+                        margin-bottom: 0.75rem;
+                    }
+                    .session-section-actions {
+                        justify-content: space-between;
+                        width: 100%;
+                    }
+                    .session-section-actions button {
+                        flex: 0 0 auto;
+                    }
+                    .session-entry > textarea {
+                        width: 100%;
+                        min-width: 0 !important;
+                        min-height: 44px;
+                        padding: 0.55rem 0.7rem !important;
+                        resize: vertical;
                         box-sizing: border-box;
                     }
                 }

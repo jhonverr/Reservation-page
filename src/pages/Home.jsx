@@ -1,3 +1,5 @@
+import { useCallback, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import useHomeData from '../hooks/useHomeData';
 import LoginView from '../components/home/LoginView';
 import PerformanceListView from '../components/home/PerformanceListView';
@@ -7,6 +9,12 @@ import PrivacyModal from '../components/home/PrivacyModal';
 import '../App.css';
 
 function Home() {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const navigatePath = useCallback((path) => {
+        if (location.pathname !== path) navigate(path);
+    }, [location.pathname, navigate]);
+
     const {
         // UI States
         view, setView,
@@ -33,31 +41,70 @@ function Home() {
         handleChange, handleSubmit, handleCancelReservation,
         submitReview, handleDeleteReview, handleUpdateReview,
         fetchUserReservations, isPerformanceEnded,
-    } = useHomeData();
+    } = useHomeData(navigatePath);
+
+    const goToView = (nextView) => {
+        if (nextView === 'performances') {
+            setView('performances');
+            navigatePath('/');
+        } else if (nextView === 'history') {
+            if (!isIdentified) {
+                setView('login');
+                navigatePath('/login');
+                return;
+            }
+            setView('history');
+            fetchUserReservations();
+            navigatePath('/history');
+        } else if (nextView === 'login') {
+            setView('login');
+            navigatePath('/login');
+        } else {
+            setView(nextView);
+        }
+    };
+
+    useEffect(() => {
+        if (location.pathname === '/history') {
+            if (!isIdentified) {
+                setView('login');
+                navigate('/login', { replace: true, state: { from: '/history' } });
+                return;
+            }
+            setView('history');
+            fetchUserReservations();
+            return;
+        }
+
+        if (location.pathname === '/login') {
+            setView('login');
+            return;
+        }
+
+        if (view !== 'reserve') {
+            setView('performances');
+        }
+        // Route changes are the source of truth for top-level home tabs.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.pathname, isIdentified]);
 
     return (
         <div className="container">
             <header className="header">
                 <div className="header-top">
-                    <h1 className="logo" onClick={() => setView('performances')} style={{ cursor: 'pointer' }}>더열정 뮤지컬 예매 페이지</h1>
+                    <h1 className="logo" onClick={() => goToView('performances')} style={{ cursor: 'pointer' }}>더열정 뮤지컬 예매 페이지</h1>
                 </div>
                 <div className="header-bottom">
                     <nav className="nav-container">
                         <div className="menu-group">
-                            <button className={`nav-btn ${view === 'performances' ? 'active' : ''}`} onClick={() => setView('performances')}>공연 정보</button>
-                            <button className={`nav-btn ${view === 'history' ? 'active' : ''}`} onClick={() => {
-                                if (!isIdentified) setView('login');
-                                else {
-                                    setView('history');
-                                    fetchUserReservations();
-                                }
-                            }}>예매 내역</button>
+                            <button className={`nav-btn ${view === 'performances' ? 'active' : ''}`} onClick={() => goToView('performances')}>공연 정보</button>
+                            <button className={`nav-btn ${view === 'history' ? 'active' : ''}`} onClick={() => goToView('history')}>예매 내역</button>
                         </div>
                         <div className="auth-group">
                             {isIdentified ? (
                                 <button className="auth-btn-logout" onClick={handleLogout}>로그아웃</button>
                             ) : (
-                                <button className={`auth-btn ${view === 'login' ? 'active' : ''}`} onClick={() => setView('login')}>로그인</button>
+                                <button className={`auth-btn ${view === 'login' ? 'active' : ''}`} onClick={() => goToView('login')}>로그인</button>
                             )}
                         </div>
                     </nav>
@@ -99,7 +146,7 @@ function Home() {
                         privacyAgreed={privacyAgreed}
                         setPrivacyAgreed={setPrivacyAgreed}
                         setShowPrivacyModal={setShowPrivacyModal}
-                        setView={setView}
+                        setView={goToView}
                         isPerformanceEnded={isPerformanceEnded}
                         reviews={reviews}
                         canReview={canReview}
@@ -119,7 +166,7 @@ function Home() {
                         loading={loading}
                         userReservations={userReservations}
                         handleCancelReservation={handleCancelReservation}
-                        setView={setView}
+                        setView={goToView}
                     />
                 )}
 

@@ -1,28 +1,20 @@
-import { useState, useEffect } from 'react';
-
 function TimePicker({ value, onChange }) {
-    // Initial state based on passed value (HH:MM) or default to 19:00 (PM 07:00)
-    const [ampm, setAmpm] = useState('PM');
-    const [hour, setHour] = useState('07');
-    const [minute, setMinute] = useState('00');
+    const getTimeParts = () => {
+        if (!value) return { ampm: 'PM', hour: '07', minute: '00' };
 
-    useEffect(() => {
-        if (value) {
-            const [h, m] = value.split(':');
-            const hNum = parseInt(h, 10);
+        const [h, m] = value.split(':');
+        const hNum = parseInt(h, 10);
 
-            if (hNum >= 12) {
-                setAmpm('PM');
-                const pmHour = hNum > 12 ? hNum - 12 : hNum;
-                setHour(pmHour.toString().padStart(2, '0'));
-            } else {
-                setAmpm('AM');
-                const amHour = hNum === 0 ? 12 : hNum;
-                setHour(amHour.toString().padStart(2, '0'));
-            }
-            setMinute(m);
+        if (hNum >= 12) {
+            const pmHour = hNum > 12 ? hNum - 12 : hNum;
+            return { ampm: 'PM', hour: pmHour.toString().padStart(2, '0'), minute: m };
         }
-    }, [value]);
+
+        const amHour = hNum === 0 ? 12 : hNum;
+        return { ampm: 'AM', hour: amHour.toString().padStart(2, '0'), minute: m };
+    };
+
+    const { ampm, hour, minute } = getTimeParts();
 
     const updateTime = (newAmpm, newHour, newMinute) => {
         let h = parseInt(newHour, 10);
@@ -36,24 +28,21 @@ function TimePicker({ value, onChange }) {
 
     const handleAmpmChange = (e) => {
         const newAmpm = e.target.value;
-        setAmpm(newAmpm);
         updateTime(newAmpm, hour, minute);
     };
 
     const handleHourChange = (e) => {
         const newHour = e.target.value;
-        setHour(newHour);
         updateTime(ampm, newHour, minute);
     };
 
     const handleMinuteChange = (e) => {
         const newMinute = e.target.value;
-        setMinute(newMinute);
         updateTime(ampm, hour, newMinute);
     };
 
     return (
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div className="time-picker" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <select
                 value={ampm}
                 onChange={handleAmpmChange}

@@ -66,20 +66,13 @@ const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact =
             {showCopyButton && onCopy && (
                 <button
                     type="button"
+                    className="btn btn-outline btn-sm"
                     onClick={(e) => { e.stopPropagation(); onCopy(perf); }}
                     style={{
                         position: 'absolute',
                         top: '1rem',
                         right: '1rem',
                         zIndex: 3,
-                        padding: '0.4rem 0.8rem',
-                        borderRadius: '8px',
-                        fontSize: '0.8rem',
-                        fontWeight: '600',
-                        background: '#fff',
-                        color: 'var(--accent-color)',
-                        border: '1px solid var(--accent-color)',
-                        cursor: 'pointer',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                     }}
                 >
@@ -168,13 +161,7 @@ const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact =
                             <div style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--text-primary)' }}>{perf.price.toLocaleString()}원</div>
                         </>
                     ) : (
-                        <span style={{
-                            fontSize: '0.85rem',
-                            color: canReview ? '#fff' : '#888',
-                            background: canReview ? 'var(--accent-color)' : '#e0e0e0',
-                            padding: '0.4rem 1rem',
-                            borderRadius: '20px',
-                            fontWeight: 'bold',
+                        <span className={`status-chip ${canReview ? 'status-chip-primary' : 'status-chip-muted'}`} style={{
                             boxShadow: canReview ? '0 4px 10px rgba(0,0,0,0.15)' : 'none',
                             display: 'flex',
                             alignItems: 'center',

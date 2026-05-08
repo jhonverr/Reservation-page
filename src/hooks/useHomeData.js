@@ -2,11 +2,16 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { isSessionEnded, isReviewTimeReached } from '../utils/date';
 
-export default function useHomeData() {
+const getSavedPhone = () => {
+    if (typeof window === 'undefined') return '';
+    return (sessionStorage.getItem('userPhone') || '').replace(/[^0-9]/g, '');
+};
+
+export default function useHomeData(navigatePath = () => {}) {
     // UI States
     const [view, setView] = useState('performances');
-    const [isIdentified, setIsIdentified] = useState(false);
-    const [phone, setPhone] = useState('');
+    const [phone, setPhone] = useState(getSavedPhone);
+    const [isIdentified, setIsIdentified] = useState(() => Boolean(getSavedPhone()));
 
     // Data States
     const [performances, setPerformances] = useState([]);
@@ -36,45 +41,6 @@ export default function useHomeData() {
 
     const [loading, setLoading] = useState(false);
     const [bookedPerfIds, setBookedPerfIds] = useState(new Set());
-
-    useEffect(() => {
-        fetchData();
-        const savedPhone = sessionStorage.getItem('userPhone');
-        if (savedPhone) {
-            setPhone(savedPhone);
-            setIsIdentified(true);
-        }
-
-        // Initialize history state for SPA-like back behavior
-        if (typeof window !== 'undefined' && window.history && !window.history.state) {
-            window.history.replaceState({ view: 'performances' }, '');
-        }
-
-        const handlePopState = () => {
-            // When user presses browser back from 예약(상세) 화면,
-            // 우선 SPA 내부에서 공연 정보 탭으로만 돌아가도록 처리
-            setView((prev) => (prev === 'reserve' ? 'performances' : prev));
-        };
-
-        if (typeof window !== 'undefined') {
-            window.addEventListener('popstate', handlePopState);
-        }
-
-        return () => {
-            if (typeof window !== 'undefined') {
-                window.removeEventListener('popstate', handlePopState);
-            }
-        };
-    }, []);
-
-    // Fetch booked performance IDs when user is identified
-    useEffect(() => {
-        if (phone) {
-            fetchBookedPerfIds();
-        } else {
-            setBookedPerfIds(new Set());
-        }
-    }, [phone]);
 
     async function fetchBookedPerfIds() {
         const { data } = await supabase
@@ -170,7 +136,7 @@ export default function useHomeData() {
                 setFormData(prev => ({
                     ...prev,
                     date: firstActive ? firstActive.date : data[0].date,
-                    time: firstActive ? firstActive.time : ''
+                    time: ''
                 }));
             }
             // 세션 데이터를 가져온 후 관람평 작성 권한(및 노출 여부)을 한 번 더 체크
@@ -235,9 +201,13 @@ export default function useHomeData() {
             alert('올바른 핸드폰 번호를 입력해주세요.');
             return;
         }
-        sessionStorage.setItem('userPhone', phone);
+        const normalizedPhone = phone.replace(/[^0-9]/g, '');
+        sessionStorage.setItem('userPhone', normalizedPhone);
+        setPhone(normalizedPhone);
         setIsIdentified(true);
         setView('performances');
+        navigatePath('/');
+        return true;
     };
 
     const handleLogout = () => {
@@ -245,11 +215,20 @@ export default function useHomeData() {
         setPhone('');
         setIsIdentified(false);
         setView('performances');
+        navigatePath('/');
     };
 
-    const handleSelectPerf = (perf) => {
+    const handleSelectPerf = async (perf) => {
         try {
-            setSelectedPerf(perf);
+            const { data: latestPerf } = await supabase
+                .from('performances')
+                .select('*')
+                .eq('id', perf.id)
+                .single();
+
+            const detailPerf = latestPerf ? { ...perf, ...latestPerf } : perf;
+
+            setSelectedPerf(detailPerf);
             setSessions([]);
             setFormData({
                 name: '',
@@ -257,9 +236,9 @@ export default function useHomeData() {
                 time: '',
                 tickets: 1
             });
-            fetchSessions(perf);
-            fetchReviews(perf.id);
-            checkReviewEligibility(perf.id, [], perf);
+            fetchSessions(detailPerf);
+            fetchReviews(detailPerf.id);
+            checkReviewEligibility(detailPerf.id, [], detailPerf);
             setView('reserve');
 
             // Push a history entry so that browser Back stays within the app first
@@ -290,6 +269,7 @@ export default function useHomeData() {
         if (!phone || !isIdentified) {
             alert('관람평 작성을 위해서는 공연 관람하신 분의 로그인이 필요합니다!');
             setView('login');
+            navigatePath('/login');
             return;
         }
 
@@ -390,6 +370,7 @@ export default function useHomeData() {
         if (!isIdentified) {
             alert('먼저 핸드폰 번호를 입력해주세요.');
             setView('login');
+            navigatePath('/login');
             return;
         }
 
@@ -451,6 +432,7 @@ export default function useHomeData() {
             alert('예약이 완료되었습니다! 🎉\n(공연 관람 후 본 페이지에서 소중한 관람평을 남겨주세요.)');
             fetchOccupancy();
             setView('history');
+            navigatePath('/history');
             fetchUserReservations();
         }
         setLoading(false);
@@ -479,6 +461,43 @@ export default function useHomeData() {
         if (!perf.sessions || perf.sessions.length === 0) return false;
         return perf.sessions.every(s => isSessionEnded(perf, s));
     }
+
+    useEffect(() => {
+        fetchData();
+
+        // Initialize history state for SPA-like back behavior
+        if (typeof window !== 'undefined' && window.history && !window.history.state) {
+            window.history.replaceState({ view: 'performances' }, '');
+        }
+
+        const handlePopState = () => {
+            // When user presses browser back from 예약(상세) 화면,
+            // 우선 SPA 내부에서 공연 정보 탭으로만 돌아가도록 처리
+            setView((prev) => (prev === 'reserve' ? 'performances' : prev));
+        };
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('popstate', handlePopState);
+        }
+
+        return () => {
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('popstate', handlePopState);
+            }
+        };
+        // Initial app bootstrap only.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Fetch booked performance IDs when user is identified
+    useEffect(() => {
+        if (phone) {
+            fetchBookedPerfIds();
+        } else {
+            setBookedPerfIds(new Set());
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [phone]);
 
     const ongoingPerformances = performances.filter(p => !isPerformanceEnded(p));
     const endedPerformances = performances.filter(p => isPerformanceEnded(p));

@@ -70,35 +70,17 @@ const ReservationItem = ({ res, onCancel }) => {
                 </div>
                 {isEnded ? (
                     <button
+                        type="button"
                         disabled
-                        style={{
-                            padding: '0.5rem 1rem',
-                            borderRadius: '8px',
-                            border: '1px solid #ccc',
-                            color: '#999',
-                            background: '#eee',
-                            fontSize: '0.85rem',
-                            fontWeight: 'bold',
-                            cursor: 'not-allowed'
-                        }}
+                        className="btn btn-muted btn-sm"
                     >
                         관람 완료
                     </button>
                 ) : (
                     <button
+                        type="button"
                         onClick={() => onCancel(res.id)}
-                        className="cancel-btn-history"
-                        style={{
-                            padding: '0.5rem 1rem',
-                            borderRadius: '8px',
-                            border: '1px solid #e74c3c',
-                            color: '#e74c3c',
-                            background: 'none',
-                            fontSize: '0.85rem',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                        }}
+                        className="btn btn-danger-outline btn-sm cancel-btn-history"
                     >
                         예매 취소
                     </button>

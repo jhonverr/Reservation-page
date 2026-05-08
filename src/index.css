@@ -5,9 +5,10 @@
   --text-primary: #2d3436;
   --text-secondary: #636e72;
   --accent-color: #ff9f43;
-  --primary-btn: #ee5253;
-  /* Use a complementary warm red/orange for primary btn or keep it orange */
-  --primary-btn-hover: #ff6b6b;
+  --primary-btn: #ff9f43;
+  --primary-btn-hover: #f39c12;
+  --danger-color: #e74c3c;
+  --success-color: #2ecc71;
   --border-radius: 12px;
   --card-bg: #ffffff;
 }

@@ -5,7 +5,7 @@
  */
 export const formatPhone = (val) => {
     if (!val) return '';
-    const raw = val.replace(/[^0-9]/g, '');
+    const raw = String(val).replace(/[^0-9]/g, '');
     if (raw.length <= 3) return raw;
     if (raw.length <= 7) return `${raw.slice(0, 3)}-${raw.slice(3)}`;
     return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;

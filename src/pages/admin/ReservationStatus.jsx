@@ -27,16 +27,8 @@ function ReservationStatus() {
                 <h2 style={{ margin: 0, color: 'var(--text-primary)' }}>예약 현황</h2>
                 <button
                     onClick={fetchData}
-                    style={{
-                        padding: '0.7rem 1.5rem',
-                        background: 'var(--accent-color)',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontSize: '1rem',
-                        fontWeight: '600'
-                    }}
+                    className="btn btn-primary"
+                    style={{ padding: '0.7rem 1.5rem', fontSize: '1rem' }}
                 >
                     새로고침
                 </button>
@@ -69,11 +61,12 @@ function ReservationStatus() {
                                         {!collapsedPerfs[perf.id] && (
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                                                 <input
+                                                    className="form-control-sm"
                                                     type="text"
                                                     placeholder="예매자명 또는 연락처..."
                                                     value={searchTerms[perf.id] || ''}
                                                     onChange={(e) => handleSearchChange(perf.id, e.target.value)}
-                                                    style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', borderRadius: '8px', border: '1px solid #eee', background: '#f8f9fa', width: '200px', flex: '1 1 200px' }}
+                                                    style={{ background: '#f8f9fa', width: '200px', flex: '1 1 200px' }}
                                                 />
                                                 <button
                                                     onClick={() => {
@@ -82,7 +75,8 @@ function ReservationStatus() {
                                                             setManualForm(p => ({ ...p, date: perf.sessions[0].date, time: perf.sessions[0].time }));
                                                         }
                                                     }}
-                                                    style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', background: 'var(--accent-color)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', flex: '1 1 auto' }}
+                                                    className="btn btn-primary btn-sm"
+                                                    style={{ whiteSpace: 'nowrap', flex: '1 1 auto' }}
                                                 >
                                                     + 수동 예약
                                                 </button>
@@ -91,16 +85,8 @@ function ReservationStatus() {
 
                                         <button
                                             onClick={() => setCollapsedPerfs(prev => ({ ...prev, [perf.id]: !prev[perf.id] }))}
-                                            style={{
-                                                padding: '0.5rem 1rem',
-                                                fontSize: '0.85rem',
-                                                background: '#666',
-                                                color: '#fff',
-                                                border: 'none',
-                                                borderRadius: '8px',
-                                                cursor: 'pointer',
-                                                whiteSpace: 'nowrap'
-                                            }}
+                                            className="btn btn-secondary btn-sm"
+                                            style={{ whiteSpace: 'nowrap' }}
                                         >
                                             {collapsedPerfs[perf.id] ? '펼치기' : '접기'}
                                         </button>

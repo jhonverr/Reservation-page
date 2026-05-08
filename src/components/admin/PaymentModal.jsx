@@ -24,36 +24,44 @@ export default function PaymentModal({
             }} onClick={e => e.stopPropagation()}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>{paymentModal.name}님의 결제 상태</h3>
-                    <button onClick={() => setPaymentModal(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#666' }}>&times;</button>
+                    <button type="button" onClick={() => setPaymentModal(null)} className="btn btn-ghost" style={{ fontSize: '1.5rem', color: '#666' }}>&times;</button>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem' }}>
                     <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>총 예매 티켓: <strong>{paymentModal.tickets}매</strong></p>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                         <button
+                            type="button"
                             onClick={() => setModalPaidTickets(p => Math.max(0, p - 1))}
                             disabled={modalPaidTickets === 0}
-                            style={{ width: '45px', height: '45px', borderRadius: '50%', border: 'none', background: '#f5f5f5', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: modalPaidTickets === 0 ? 'not-allowed' : 'pointer', color: '#333' }}
+                            className="btn btn-secondary btn-icon-circle"
+                            style={{ width: '45px', height: '45px', minHeight: '45px', fontSize: '1.5rem', color: '#333' }}
                         >-</button>
                         <div style={{ fontSize: '2rem', fontWeight: 'bold', width: '80px', textAlign: 'center', color: modalPaidTickets === 0 ? '#999' : (modalPaidTickets === paymentModal.tickets ? '#2ecc71' : '#f39c12') }}>
                             {modalPaidTickets} <span style={{ fontSize: '1rem', color: '#888' }}>/ {paymentModal.tickets}</span>
                         </div>
                         <button
+                            type="button"
                             onClick={() => setModalPaidTickets(p => Math.min(paymentModal.tickets, p + 1))}
                             disabled={modalPaidTickets === paymentModal.tickets}
-                            style={{ width: '45px', height: '45px', borderRadius: '50%', border: 'none', background: '#f5f5f5', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: modalPaidTickets === paymentModal.tickets ? 'not-allowed' : 'pointer', color: '#333' }}
+                            className="btn btn-secondary btn-icon-circle"
+                            style={{ width: '45px', height: '45px', minHeight: '45px', fontSize: '1.5rem', color: '#333' }}
                         >+</button>
                     </div>
                 </div>
                 {showFullPayBtn && (
                     <button
+                        type="button"
                         onClick={() => { handlePayFull(paymentModal); setPaymentModal(null); }}
-                        style={{ width: '100%', padding: '1rem', background: '#2ecc71', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', marginBottom: '0.5rem' }}
+                        className="btn btn-success btn-full"
+                        style={{ padding: '1rem', fontSize: '1rem', marginBottom: '0.5rem' }}
                     >전체 결제</button>
                 )}
                 <button
+                    type="button"
                     onClick={handleSavePaymentModal}
-                    style={{ width: '100%', padding: '1rem', background: 'var(--accent-color)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}
+                    className="btn btn-primary btn-full"
+                    style={{ padding: '1rem', fontSize: '1rem' }}
                 >완료</button>
             </div>
         </div>
