@@ -514,7 +514,10 @@ function EditPerformance() {
                     ))}
                 </div>
 
-                <div style={{ marginTop: '3rem', borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                <div
+                    className="admin-edit-action-buttons"
+                    style={{ marginTop: '3rem', borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}
+                >
                     <button type="submit" className="submit-btn" disabled={loading} style={{ flex: 2, background: '#f39c12' }}>
                         {loading ? '수정 중...' : '공연 정보 수정'}
                     </button>
@@ -640,6 +643,15 @@ function EditPerformance() {
                         padding: 0.55rem 0.7rem !important;
                         resize: vertical;
                         box-sizing: border-box;
+                    }
+                    .admin-edit-action-buttons {
+                        display: grid !important;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 0.75rem;
+                    }
+                    .admin-edit-action-buttons > button {
+                        width: 100%;
+                        min-width: 0;
                     }
                 }
                 @media (max-width: 480px) {

@@ -99,7 +99,11 @@ function HiddenPerformances() {
             ) : (
                 <div className="admin-hidden-performance-list">
                     {filteredPerformances.map(perf => (
-                        <article key={perf.id} className="booking-card admin-hidden-performance-card">
+                        <article
+                            key={perf.id}
+                            className="booking-card admin-hidden-performance-card"
+                            style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
+                        >
                             <div className="admin-hidden-performance-info">
                                 {perf.poster_url && (
                                     <img
