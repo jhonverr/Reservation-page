@@ -1,9 +1,11 @@
 import { Routes, Route, Link, useNavigate, Navigate, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import ManagePerformance from './ManagePerformance';
 import CreatePerformance from './CreatePerformance';
 import EditPerformance from './EditPerformance';
 import ReservationStatus from './ReservationStatus';
+import ReviewManagementPage from './ReviewManagementPage';
+import HiddenPerformances from './HiddenPerformances';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -46,6 +48,18 @@ function Dashboard() {
           >
             예약 현황
           </Link>
+          <Link
+            to="/admin/dashboard/reviews"
+            className={`admin-nav-item ${location.pathname.includes('reviews') ? 'active' : ''}`}
+          >
+            관람평 관리
+          </Link>
+          <Link
+            to="/admin/dashboard/hidden"
+            className={`admin-nav-item ${location.pathname.includes('hidden') ? 'active' : ''}`}
+          >
+            숨김 공연
+          </Link>
         </nav>
       </header>
 
@@ -56,6 +70,8 @@ function Dashboard() {
           <Route path="create" element={<CreatePerformance />} />
           <Route path="edit/:id" element={<EditPerformance />} />
           <Route path="status" element={<ReservationStatus key={refreshKey} />} />
+          <Route path="reviews" element={<ReviewManagementPage />} />
+          <Route path="hidden" element={<HiddenPerformances />} />
           <Route path="*" element={<div style={{ padding: '2rem' }}><h3>메뉴를 선택해주세요.</h3></div>} />
         </Routes>
       </main>

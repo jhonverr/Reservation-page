@@ -152,7 +152,9 @@ function CreatePerformance() {
                     poster_url: posterUrl,
                     latitude,
                     longitude,
-                    address
+                    address,
+                    is_deleted: false,
+                    deleted_at: null
                 }])
                 .select()
                 .single();

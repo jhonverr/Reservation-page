@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { isSessionEnded } from '../utils/date';
+import { isVisiblePerformance } from '../utils/performance';
 import autoAnimate from '@formkit/auto-animate';
 
 export default function useReservationData() {
@@ -31,12 +32,7 @@ export default function useReservationData() {
         time: ''
     });
 
-    useEffect(() => {
-        cleanupOldData();
-        fetchData();
-    }, []);
-
-    async function cleanupOldData() {
+    const cleanupOldData = useCallback(async () => {
         const threeMonthsAgo = new Date();
         threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
@@ -76,11 +72,13 @@ export default function useReservationData() {
         } else {
             console.log('Old data cleanup completed (Reservations & Reviews) for performances:', targetPerfIds);
         }
-    }
+    }, []);
 
-    async function fetchData() {
+    const fetchData = useCallback(async () => {
         setLoading(true);
-        const { data: perfData } = await supabase.from('performances').select('*');
+        const { data: perfData } = await supabase
+            .from('performances')
+            .select('*');
         const { data: resData } = await supabase
             .from('reservations')
             .select('*')
@@ -93,7 +91,8 @@ export default function useReservationData() {
             .order('time', { ascending: true });
 
         if (perfData) {
-            const perfWithSessions = perfData.map(perf => ({
+            const visiblePerfData = perfData.filter(isVisiblePerformance);
+            const perfWithSessions = visiblePerfData.map(perf => ({
                 ...perf,
                 sessions: sessionsData?.filter(s => s.performance_id === perf.id) || []
             }));
@@ -128,9 +127,20 @@ export default function useReservationData() {
             setCollapsedPerfs(initialCollapsedPerfs);
             setCollapsedSessions(initialCollapsedSessions);
         }
-        if (resData) setReservations(resData);
+        if (resData && perfData) {
+            const visiblePerfIds = new Set(perfData.filter(isVisiblePerformance).map(perf => String(perf.id)));
+            setReservations(resData.filter(res => visiblePerfIds.has(String(res.performance_id))));
+        } else if (resData) {
+            setReservations(resData);
+        }
         setLoading(false);
-    }
+    }, []);
+
+    useEffect(() => {
+        cleanupOldData();
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchData();
+    }, [cleanupOldData, fetchData]);
 
     const handleDeleteReservation = async (resId) => {
         if (!window.confirm('정말로 이 예약을 취소하시겠습니까? (삭제 처리됩니다)')) return;
@@ -283,6 +293,7 @@ export default function useReservationData() {
                 booked,
                 totalPaid,
                 total: perf.total_seats,
+                isEnded,
             };
         });
 

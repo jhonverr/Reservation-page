@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import TimePicker from '../../components/TimePicker';
@@ -36,11 +36,7 @@ function EditPerformance() {
     const [sessions, setSessions] = useState([]);
     const [useMap, setUseMap] = useState(false);
 
-    useEffect(() => {
-        fetchPerformanceData();
-    }, [id]);
-
-    async function fetchPerformanceData() {
+    const fetchPerformanceData = useCallback(async () => {
         try {
             // 1. Fetch Performance
             const { data: perf, error: perfError } = await supabase
@@ -90,7 +86,11 @@ function EditPerformance() {
         } finally {
             setFetching(false);
         }
-    }
+    }, [id, navigate]);
+
+    useEffect(() => {
+        fetchPerformanceData();
+    }, [fetchPerformanceData]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -218,12 +218,54 @@ function EditPerformance() {
         }
     };
 
-    const handleDelete = async () => {
-        if (!window.confirm('정말 이 공연을 삭제하시겠습니까? 관련 모든 데이터가 삭제됩니다.')) return;
+    const handleHidePerformance = async () => {
+        if (!window.confirm('이 공연을 숨김 처리하시겠습니까? 예약 내역과 관람평은 보관됩니다.')) return;
 
         setLoading(true);
         try {
-            // 1. Delete Sessions
+            const { error: perfError } = await supabase
+                .from('performances')
+                .update({
+                    is_deleted: true,
+                    deleted_at: new Date().toISOString()
+                })
+                .eq('id', id);
+
+            if (perfError) throw new Error(`공연 숨김 처리 오류: ${perfError.message}`);
+
+            alert('공연이 숨김 처리되었습니다.');
+            navigate('/admin/dashboard/manage');
+
+        } catch (error) {
+            console.error('Error deleting performance:', error);
+            alert('숨김 처리 실패: ' + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDeletePerformance = async () => {
+        const confirmed = window.confirm(
+            '이 공연을 영구 삭제하시겠습니까?\n\n연결된 관람평, 예약 내역, 회차 정보가 모두 삭제되며 복구할 수 없습니다.'
+        );
+        if (!confirmed) return;
+
+        setLoading(true);
+        try {
+            const { error: reviewError } = await supabase
+                .from('performance_reviews')
+                .delete()
+                .eq('performance_id', id);
+
+            if (reviewError) throw new Error(`관람평 삭제 오류: ${reviewError.message}`);
+
+            const { error: reservationError } = await supabase
+                .from('reservations')
+                .delete()
+                .eq('performance_id', id);
+
+            if (reservationError) throw new Error(`예약 내역 삭제 오류: ${reservationError.message}`);
+
             const { error: sessionError } = await supabase
                 .from('performance_sessions')
                 .delete()
@@ -231,7 +273,6 @@ function EditPerformance() {
 
             if (sessionError) throw new Error(`회차 정보 삭제 오류: ${sessionError.message}`);
 
-            // 2. Delete Performance
             const { error: perfError } = await supabase
                 .from('performances')
                 .delete()
@@ -239,11 +280,10 @@ function EditPerformance() {
 
             if (perfError) throw new Error(`공연 삭제 오류: ${perfError.message}`);
 
-            alert('공연이 삭제되었습니다.');
+            alert('공연과 관련 데이터가 삭제되었습니다.');
             navigate('/admin/dashboard/manage');
-
         } catch (error) {
-            console.error('Error deleting performance:', error);
+            console.error('Error permanently deleting performance:', error);
             alert('삭제 실패: ' + error.message);
         } finally {
             setLoading(false);
@@ -474,11 +514,20 @@ function EditPerformance() {
                     ))}
                 </div>
 
-                <div style={{ marginTop: '3rem', borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '2rem', display: 'flex', gap: '1rem' }}>
-                    <button type="submit" className="submit-btn" disabled={loading} style={{ flex: 2 }}>
+                <div style={{ marginTop: '3rem', borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    <button type="submit" className="submit-btn" disabled={loading} style={{ flex: 2, background: '#f39c12' }}>
                         {loading ? '수정 중...' : '공연 정보 수정'}
                     </button>
-                    <button type="button" onClick={handleDelete} className="submit-btn" disabled={loading} style={{ flex: 1, background: '#ff6b6b' }}>
+                    <button
+                        type="button"
+                        onClick={handleHidePerformance}
+                        className="submit-btn"
+                        disabled={loading}
+                        style={{ flex: 1, background: '#f38ca0', color: '#fff', border: '1px solid #e76e81' }}
+                        >
+                        숨김 처리
+                    </button>
+                    <button type="button" onClick={handleDeletePerformance} className="submit-btn" disabled={loading} style={{ flex: 1, background: '#e74c3c' }}>
                         삭제
                     </button>
                     <button type="button" onClick={() => navigate('/admin/dashboard/manage')} className="submit-btn" style={{ flex: 1, background: '#636e72' }}>

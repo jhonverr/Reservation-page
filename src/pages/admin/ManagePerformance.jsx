@@ -1,17 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import PerformanceCard from '../../components/PerformanceCard';
+import { isVisiblePerformance } from '../../utils/performance';
 
 function ManagePerformance() {
     const [performances, setPerformances] = useState([]);
     const navigate = useNavigate();
 
-    useEffect(() => {
-        fetchPerformances();
-    }, []);
-
-    async function fetchPerformances() {
+    const fetchPerformances = useCallback(async () => {
         const { data, error } = await supabase
             .from('performances')
             .select('*')
@@ -20,9 +17,14 @@ function ManagePerformance() {
         if (error) {
             console.error('Error fetching performances:', error);
         } else {
-            setPerformances(data);
+            setPerformances((data || []).filter(isVisiblePerformance));
         }
-    }
+    }, []);
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchPerformances();
+    }, [fetchPerformances]);
 
     return (
         <div>

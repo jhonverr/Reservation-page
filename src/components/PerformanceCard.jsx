@@ -114,6 +114,11 @@ const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact =
             <div style={{ padding: compact ? '1.1rem' : '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ filter: isEnded ? 'grayscale(0.6)' : 'none' }}>
                     <h3 style={{ marginBottom: compact ? '0.6rem' : '1rem', fontSize: compact ? '1.2rem' : '1.5rem', fontWeight: '800', color: 'var(--text-primary)' }}>{perf.title}</h3>
+                    {showCopyButton && (
+                        <div style={{ margin: '-0.45rem 0 0.7rem', fontSize: '0.8rem', color: '#999', fontWeight: 700 }}>
+                            관리 ID #{perf.id}
+                        </div>
+                    )}
                     <div style={{ fontSize: '0.85rem', color: isEnded ? '#888' : 'var(--text-secondary)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem 1rem', marginTop: '0.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <span style={{ fontSize: '1rem' }}>📅</span>

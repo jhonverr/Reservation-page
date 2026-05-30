@@ -51,6 +51,7 @@ function ReservationStatus() {
                                         <div>
                                             <h3 style={{ margin: 0, color: 'var(--accent-color)', marginBottom: '0.4rem' }}>{perf.title}</h3>
                                             <p style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>{perf.date_range}</p>
+                                            <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#999', fontWeight: 700 }}>관리 ID #{perf.id}</p>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
                                             <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>총 {totalPaid}석 결제 <span style={{ color: '#ccc', fontWeight: 'normal' }}>|</span> {totalBooked}석 예매</span>

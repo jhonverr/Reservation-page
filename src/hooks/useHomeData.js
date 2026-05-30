@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { isSessionEnded, isReviewTimeReached } from '../utils/date';
+import { isVisiblePerformance } from '../utils/performance';
 
 const getSavedPhone = () => {
     if (typeof window === 'undefined') return '';
@@ -58,14 +59,17 @@ export default function useHomeData(navigatePath = () => {}) {
     }
 
     async function fetchPerformances() {
-        const { data: perfData, error: perfError } = await supabase.from('performances').select('*');
+        const { data: perfData, error: perfError } = await supabase
+            .from('performances')
+            .select('*');
         const { data: sessionData } = await supabase.from('performance_sessions')
             .select('*')
             .order('date', { ascending: true })
             .order('time', { ascending: true });
 
         if (!perfError && perfData) {
-            const combined = perfData.map(p => ({
+            const visiblePerfData = perfData.filter(isVisiblePerformance);
+            const combined = visiblePerfData.map(p => ({
                 ...p,
                 sessions: sessionData?.filter(s => s.performance_id === p.id) || []
             }));
@@ -226,6 +230,12 @@ export default function useHomeData(navigatePath = () => {}) {
                 .select('*')
                 .eq('id', perf.id)
                 .single();
+
+            if (!latestPerf || !isVisiblePerformance(latestPerf)) {
+                alert('공연 정보를 불러오는 중 오류가 발생했습니다.');
+                navigatePath('/');
+                return;
+            }
 
             const detailPerf = latestPerf ? { ...perf, ...latestPerf } : perf;
 
