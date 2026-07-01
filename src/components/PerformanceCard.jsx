@@ -12,7 +12,7 @@ import { isSessionEnded } from '../utils/date';
  * @param {boolean} [props.showCopyButton=false] - Whether to show copy button (e.g. in admin).
  * @param {Function} [props.onCopy] - Handler when copy button is clicked; receives perf.
  */
-const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact = false, canReview = false, showCopyButton = false, onCopy }) => {
+const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact = false, canReview = false, showCopyButton = false, onCopy, posterVariant = 'wide' }) => {
     // Helper to check if a performance is fully sold out across all REMAINING sessions
     const isPerformanceSoldOut = () => {
         if (!perf.sessions || perf.sessions.length === 0) return false;
@@ -28,6 +28,22 @@ const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact =
     };
 
     const isSoldOut = !isEnded && isPerformanceSoldOut();
+    const imageFrameStyle = {
+        position: 'relative',
+        overflow: 'hidden',
+        filter: isEnded ? 'grayscale(0.6)' : 'none',
+        ...(posterVariant === 'portrait'
+            ? {
+                width: compact ? '100%' : 'min(100%, 360px)',
+                aspectRatio: '3 / 4',
+                margin: compact ? 0 : '1.25rem auto 0',
+                borderRadius: compact ? 0 : '12px',
+                border: compact ? 'none' : '1px solid #eee',
+                background: '#f8f9fa',
+                boxSizing: 'border-box'
+            }
+            : { height: compact ? '220px' : '320px' })
+    };
 
     return (
         <div
@@ -80,7 +96,7 @@ const PerformanceCard = ({ perf, occupancy, onSelect, isEnded = false, compact =
                 </button>
             )}
 
-            <div style={{ position: 'relative', height: compact ? '220px' : '320px', overflow: 'hidden', filter: isEnded ? 'grayscale(0.6)' : 'none' }}>
+            <div style={imageFrameStyle}>
                 {perf.poster_url && (
                     <img
                         src={`https://wsrv.nl/?url=${encodeURIComponent(perf.poster_url)}`}
@@ -198,8 +214,10 @@ PerformanceCard.propTypes = {
     onSelect: PropTypes.func.isRequired,
     isEnded: PropTypes.bool,
     compact: PropTypes.bool,
+    canReview: PropTypes.bool,
     showCopyButton: PropTypes.bool,
-    onCopy: PropTypes.func
+    onCopy: PropTypes.func,
+    posterVariant: PropTypes.oneOf(['wide', 'portrait'])
 };
 
 export default PerformanceCard;

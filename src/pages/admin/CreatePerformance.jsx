@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import TimePicker from '../../components/TimePicker';
+import TimePicker, { DEFAULT_TIME } from '../../components/TimePicker';
 import LocationPicker from '../../components/LocationPicker';
 import { formatPhone } from '../../utils/format';
 import { compressImage } from '../../utils/image';
@@ -84,7 +84,7 @@ function CreatePerformance() {
     };
 
     const addSession = () => {
-        setSessions([...sessions, { date: '', time: '', castingInfo: '' }]);
+        setSessions([...sessions, { date: '', time: DEFAULT_TIME, castingInfo: '' }]);
     };
 
     const removeSession = (index) => {
@@ -104,6 +104,11 @@ function CreatePerformance() {
         setLoading(true);
 
         try {
+            const invalidSessionIndex = sessions.findIndex(session => !session.date || !session.time);
+            if (invalidSessionIndex !== -1) {
+                throw new Error(`${invalidSessionIndex + 1}번 회차의 날짜와 시간을 입력해주세요.`);
+            }
+
             let posterUrl = '';
 
             // 1. 포스터: 새 파일 업로드 또는 복사된 URL 사용

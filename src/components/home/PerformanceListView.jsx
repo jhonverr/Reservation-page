@@ -19,6 +19,7 @@ export default function PerformanceListView({ ongoingPerformances, endedPerforma
                             perf={perf}
                             occupancy={occupancy}
                             onSelect={handleSelectPerf}
+                            posterVariant="portrait"
                         />
                     ))}
                 </div>
@@ -39,6 +40,7 @@ export default function PerformanceListView({ ongoingPerformances, endedPerforma
                                 onSelect={handleSelectPerf}
                                 isEnded={true}
                                 canReview={isIdentified && bookedPerfIds?.has(perf.id)}
+                                posterVariant="portrait"
                             />
                         ))}
                     </div>

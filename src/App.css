@@ -395,6 +395,12 @@ textarea:focus {
     font-size: 0.9rem;
 }
 
+.performance-review-content {
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 .control-panel {
     background: var(--surface-muted);
     border: 1px solid var(--border-subtle);

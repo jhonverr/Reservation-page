@@ -1,8 +1,31 @@
-function TimePicker({ value, onChange }) {
-    const getTimeParts = () => {
-        if (!value) return { ampm: 'PM', hour: '07', minute: '00' };
+import { useEffect } from 'react';
 
-        const [h, m] = value.split(':');
+export const DEFAULT_TIME = '19:00';
+
+const normalizeTimeValue = (value) => {
+    const match = String(value || '').match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return DEFAULT_TIME;
+
+    const hour = parseInt(match[1], 10);
+    const minute = parseInt(match[2], 10);
+    if (Number.isNaN(hour) || Number.isNaN(minute) || hour > 23 || minute > 59) {
+        return DEFAULT_TIME;
+    }
+
+    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+};
+
+function TimePicker({ value, onChange }) {
+    const normalizedValue = normalizeTimeValue(value);
+
+    useEffect(() => {
+        if (value !== normalizedValue) {
+            onChange(normalizedValue);
+        }
+    }, [value, normalizedValue, onChange]);
+
+    const getTimeParts = () => {
+        const [h, m] = normalizedValue.split(':');
         const hNum = parseInt(h, 10);
 
         if (hNum >= 12) {

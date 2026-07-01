@@ -58,7 +58,7 @@ export default function ReviewSection({
                                         </div>
                                     ) : (
                                         <>
-                                            <p style={{ margin: '0 0 0.5rem 0', color: '#333' }}>{rev.content}</p>
+                                            <p className="performance-review-content" style={{ margin: '0 0 0.5rem 0', color: '#333' }}>{rev.content}</p>
                                             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                                                 <button
                                                     type="button"
@@ -75,7 +75,7 @@ export default function ReviewSection({
                                     )}
                                 </div>
                             ) : (
-                                <p style={{ margin: 0, color: '#444' }}>{rev.content}</p>
+                                <p className="performance-review-content" style={{ margin: 0, color: '#444' }}>{rev.content}</p>
                             )}
                         </div>
                     ))

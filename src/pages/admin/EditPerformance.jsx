@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import TimePicker from '../../components/TimePicker';
+import TimePicker, { DEFAULT_TIME } from '../../components/TimePicker';
 import LocationPicker from '../../components/LocationPicker';
 import { formatPhone } from '../../utils/format';
 import { compressImage } from '../../utils/image';
@@ -115,7 +115,7 @@ function EditPerformance() {
     };
 
     const addSession = () => {
-        setSessions([...sessions, { date: '', time: '', castingInfo: '' }]);
+        setSessions([...sessions, { date: '', time: DEFAULT_TIME, castingInfo: '' }]);
     };
 
     const removeSession = (index) => {
@@ -128,6 +128,11 @@ function EditPerformance() {
         setLoading(true);
 
         try {
+            const invalidSessionIndex = sessions.findIndex(session => !session.date || !session.time);
+            if (invalidSessionIndex !== -1) {
+                throw new Error(`${invalidSessionIndex + 1}번 회차의 날짜와 시간을 입력해주세요.`);
+            }
+
             let posterUrl = existingPosterUrl;
 
             // 1. Upload new image if exists
