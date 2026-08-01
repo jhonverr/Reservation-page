@@ -185,8 +185,8 @@ export default function BookingView({
                     <div className="verification-notice">
                         <span aria-hidden="true">🔒</span>
                         <div>
-                            <strong>휴대전화 확인이 필요해요</strong>
-                            <p>확인 후에도 지금 선택한 내용은 그대로 유지됩니다.</p>
+                            <strong>로그인이 필요해요</strong>
+                            <p>로그인 후에도 지금 선택한 내용은 그대로 유지됩니다.</p>
                         </div>
                     </div>
                 )}
@@ -244,7 +244,7 @@ export default function BookingView({
                     if (!isIdentified) {
                         return (
                             <button type="button" className="btn btn-primary btn-full booking-primary-action" onClick={() => setView('login')}>
-                                휴대전화 확인 후 계속
+                                로그인 후 계속
                             </button>
                         );
                     }
@@ -275,11 +275,11 @@ export default function BookingView({
                     <strong>{selectedPerf.price.toLocaleString()}원</strong>
                 </div>
                 <ul className="detail-facts" aria-label="공연 기본 정보">
-                    <li><span aria-hidden="true">⏱</span><strong>공연 시간</strong>{selectedPerf.duration}</li>
-                    <li><span aria-hidden="true">👥</span><strong>관람 등급</strong>{selectedPerf.age_rating === 'all' ? '전체 관람가' : `${selectedPerf.age_rating}세 이상`}</li>
-                    <li><span aria-hidden="true">💺</span><strong>회차당 좌석</strong>{selectedPerf.total_seats}석</li>
+                    <li><span aria-hidden="true">⏱</span><strong>공연 시간</strong><span className="detail-fact-value">{selectedPerf.duration}</span></li>
+                    <li><span aria-hidden="true">👥</span><strong>관람 등급</strong><span className="detail-fact-value">{selectedPerf.age_rating === 'all' ? '전체 관람가' : `${selectedPerf.age_rating}세 이상`}</span></li>
+                    <li><span aria-hidden="true">💺</span><strong>회차당 좌석</strong><span className="detail-fact-value">{selectedPerf.total_seats}석</span></li>
                     {selectedPerf.contact_phone && (
-                        <li><span aria-hidden="true">☎</span><strong>공연 문의</strong><a href={`tel:${selectedPerf.contact_phone}`}>{formatPhone(selectedPerf.contact_phone)}</a></li>
+                        <li><span aria-hidden="true">☎</span><strong>공연 문의</strong><a className="detail-fact-value" href={`tel:${selectedPerf.contact_phone}`}>{formatPhone(selectedPerf.contact_phone)}</a></li>
                     )}
                 </ul>
             </header>

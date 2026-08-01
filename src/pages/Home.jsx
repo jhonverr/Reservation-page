@@ -147,7 +147,7 @@ function Home() {
                             {isIdentified ? (
                                 <button className="auth-btn-logout" onClick={handleLogout}>로그아웃</button>
                             ) : (
-                                <button aria-current={view === 'login' ? 'page' : undefined} className={`auth-btn ${view === 'login' ? 'active' : ''}`} onClick={() => goToView('login')}>휴대전화 확인</button>
+                                <button aria-current={view === 'login' ? 'page' : undefined} className="auth-btn-logout" onClick={() => goToView('login')}>로그인</button>
                             )}
                         </div>
                     </nav>

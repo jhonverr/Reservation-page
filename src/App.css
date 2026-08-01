@@ -858,20 +858,34 @@ summary:focus-visible {
 
 .detail-facts li {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-items: start;
     gap: 0.1rem 0.45rem;
+    min-width: 0;
     color: var(--text-secondary);
     font-size: 0.88rem;
     line-height: 1.45;
 }
 
-.detail-facts li > span {
+.detail-facts li > span:first-child {
     grid-row: 1 / 3;
 }
 
 .detail-facts strong {
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
     color: var(--text-primary);
     font-size: 0.78rem;
+}
+
+.detail-fact-value {
+    display: block;
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .detail-facts a {
@@ -1757,7 +1771,8 @@ summary:focus-visible {
     }
 
     .detail-facts {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 1rem 0.75rem;
     }
 
     .perf-detail-grid {
