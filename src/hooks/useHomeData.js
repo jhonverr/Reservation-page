@@ -41,6 +41,15 @@ export default function useHomeData(navigatePath = () => {}) {
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
+    const [dataError, setDataError] = useState('');
+    const [historyError, setHistoryError] = useState('');
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [detailError, setDetailError] = useState('');
+    const [identityError, setIdentityError] = useState('');
+    const [bookingStep, setBookingStep] = useState('form');
+    const [reservationError, setReservationError] = useState('');
+    const [completedReservation, setCompletedReservation] = useState(null);
     const [bookedPerfIds, setBookedPerfIds] = useState(new Set());
 
     async function fetchBookedPerfIds() {
@@ -54,20 +63,37 @@ export default function useHomeData(navigatePath = () => {}) {
     }
 
     async function fetchData() {
-        await fetchPerformances();
-        await fetchOccupancy();
+        setInitialLoading(true);
+        setDataError('');
+        try {
+            await Promise.all([
+                fetchPerformances(),
+                fetchOccupancy({ throwOnError: true })
+            ]);
+        } catch (error) {
+            console.error('Error loading home data:', error);
+            setDataError('공연 정보를 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해주세요.');
+        } finally {
+            setInitialLoading(false);
+        }
     }
 
     async function fetchPerformances() {
-        const { data: perfData, error: perfError } = await supabase
-            .from('performances')
-            .select('*');
-        const { data: sessionData } = await supabase.from('performance_sessions')
-            .select('*')
-            .order('date', { ascending: true })
-            .order('time', { ascending: true });
+        const [performanceResult, sessionResult] = await Promise.all([
+            supabase.from('performances').select('*'),
+            supabase.from('performance_sessions')
+                .select('*')
+                .order('date', { ascending: true })
+                .order('time', { ascending: true })
+        ]);
+        const { data: perfData, error: perfError } = performanceResult;
+        const { data: sessionData, error: sessionError } = sessionResult;
 
-        if (!perfError && perfData) {
+        if (perfError || sessionError) {
+            throw perfError || sessionError;
+        }
+
+        if (perfData) {
             const visiblePerfData = perfData.filter(isVisiblePerformance);
             const combined = visiblePerfData.map(p => ({
                 ...p,
@@ -81,34 +107,42 @@ export default function useHomeData(navigatePath = () => {}) {
                 return new Date(dateBStr) - new Date(dateAStr);
             });
 
-            console.log('[Debug] Fetched & Sorted Performances:', combined);
             setPerformances(combined);
         }
     }
 
-    async function fetchOccupancy() {
+    async function fetchOccupancy(options = {}) {
+        const { throwOnError = false } = options;
         const { data, error } = await supabase.from('reservations').select('performance_id, date, time, tickets');
-        if (!error && data) {
-            const occ = {};
-            data.forEach(res => {
-                if (!occ[res.performance_id]) occ[res.performance_id] = {};
-                const key = `${res.date}|${res.time}`;
-                occ[res.performance_id][key] = (occ[res.performance_id][key] || 0) + res.tickets;
-            });
-            setOccupancy(occ);
+        if (error) {
+            if (throwOnError) throw error;
+            return false;
         }
+
+        const occ = {};
+        (data || []).forEach(res => {
+            if (!occ[res.performance_id]) occ[res.performance_id] = {};
+            const key = `${res.date}|${res.time}`;
+            occ[res.performance_id][key] = (occ[res.performance_id][key] || 0) + res.tickets;
+        });
+        setOccupancy(occ);
+        return true;
     }
 
     async function fetchUserReservations() {
         if (!phone) return;
         setLoading(true);
+        setHistoryError('');
         const { data, error } = await supabase
             .from('reservations')
             .select('*, performances(*)')
             .eq('phone', phone)
             .order('created_at', { ascending: false });
 
-        if (!error && data) {
+        if (error) {
+            console.error('Error loading reservation history:', error);
+            setHistoryError('예매 내역을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+        } else if (data) {
             const enriched = await Promise.all(data.map(async (res) => {
                 const { count } = await supabase
                     .from('reservations')
@@ -133,7 +167,9 @@ export default function useHomeData(navigatePath = () => {}) {
             .order('date', { ascending: true })
             .order('time', { ascending: true });
 
-        if (!error && data) {
+        if (error) throw error;
+
+        if (data) {
             setSessions(data);
             if (data.length > 0) {
                 const firstActive = data.find(s => !isSessionEnded(perf, s));
@@ -146,6 +182,7 @@ export default function useHomeData(navigatePath = () => {}) {
             // 세션 데이터를 가져온 후 관람평 작성 권한(및 노출 여부)을 한 번 더 체크
             checkReviewEligibility(perf.id, data, perf);
         }
+        return data || [];
     }
 
     async function fetchReviews(perfId) {
@@ -199,18 +236,28 @@ export default function useHomeData(navigatePath = () => {}) {
         }
     }
 
-    const handleIdentify = (e) => {
+    const handleIdentify = (e, returnTo = '/') => {
         e.preventDefault();
+        setIdentityError('');
         if (phone.length < 10) {
-            alert('올바른 핸드폰 번호를 입력해주세요.');
+            setIdentityError('휴대전화 번호를 정확히 입력해주세요.');
             return;
         }
         const normalizedPhone = phone.replace(/[^0-9]/g, '');
+        const safeReturnTo = typeof returnTo === 'string' && returnTo.startsWith('/')
+            ? returnTo
+            : '/';
         sessionStorage.setItem('userPhone', normalizedPhone);
         setPhone(normalizedPhone);
         setIsIdentified(true);
-        setView('performances');
-        navigatePath('/');
+        if (safeReturnTo.startsWith('/performance/')) {
+            setView('reserve');
+        } else if (safeReturnTo.startsWith('/history')) {
+            setView('history');
+        } else {
+            setView('performances');
+        }
+        navigatePath(safeReturnTo);
         return true;
     };
 
@@ -224,42 +271,50 @@ export default function useHomeData(navigatePath = () => {}) {
 
     const handleSelectPerf = async (perf, options = {}) => {
         const { updatePath = true, scrollToTop = true } = options;
+        setSelectedPerf(perf);
+        setSessions([]);
+        setDetailError('');
+        setDetailLoading(true);
+        setBookingStep('form');
+        setCompletedReservation(null);
+        setReservationError('');
+        setPrivacyAgreed(false);
+        setFormData({
+            name: '',
+            date: '',
+            time: '',
+            tickets: 1
+        });
+        setView('reserve');
+        if (updatePath) {
+            navigatePath(`/performance/${perf.id}`);
+        }
+        if (scrollToTop && typeof window !== 'undefined') {
+            window.scrollTo(0, 0);
+        }
+
         try {
-            const { data: latestPerf } = await supabase
+            const { data: latestPerf, error: perfError } = await supabase
                 .from('performances')
                 .select('*')
                 .eq('id', perf.id)
                 .single();
 
-            if (!latestPerf || !isVisiblePerformance(latestPerf)) {
-                alert('공연 정보를 불러오는 중 오류가 발생했습니다.');
-                navigatePath('/');
-                return;
-            }
+            if (perfError) throw perfError;
+            if (!latestPerf || !isVisiblePerformance(latestPerf)) throw new Error('Performance not found');
 
             const detailPerf = latestPerf ? { ...perf, ...latestPerf } : perf;
 
             setSelectedPerf(detailPerf);
-            setSessions([]);
-            setFormData({
-                name: '',
-                date: '',
-                time: '',
-                tickets: 1
-            });
-            fetchSessions(detailPerf);
-            fetchReviews(detailPerf.id);
-            checkReviewEligibility(detailPerf.id, [], detailPerf);
-            setView('reserve');
-            if (updatePath) {
-                navigatePath(`/performance/${detailPerf.id}`);
-            }
-            if (scrollToTop && typeof window !== 'undefined') {
-                window.scrollTo(0, 0);
-            }
+            await Promise.all([
+                fetchSessions(detailPerf),
+                fetchReviews(detailPerf.id)
+            ]);
         } catch (error) {
             console.error('Error selecting performance:', error);
-            alert('공연 정보를 불러오는 중 오류가 발생했습니다.');
+            setDetailError('공연 상세 정보를 불러오지 못했습니다. 다시 시도해주세요.');
+        } finally {
+            setDetailLoading(false);
         }
     };
 
@@ -273,7 +328,7 @@ export default function useHomeData(navigatePath = () => {}) {
             alert('관람평 작성을 위해서는 공연 관람하신 분의 로그인이 필요합니다!');
             setView('login');
             navigatePath('/login');
-            return;
+            return false;
         }
 
         if (hasReviewed) {
@@ -365,36 +420,55 @@ export default function useHomeData(navigatePath = () => {}) {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
+        setReservationError('');
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setReservationError('');
         if (!isIdentified) {
-            alert('먼저 핸드폰 번호를 입력해주세요.');
+            setIdentityError('예매를 계속하려면 휴대전화 확인이 필요합니다.');
             setView('login');
             navigatePath('/login');
             return;
         }
 
         if (!privacyAgreed) {
-            alert('개인정보 수집 및 이용에 동의해주세요.');
-            return;
+            setReservationError('개인정보 수집 및 이용에 동의해주세요.');
+            return false;
+        }
+
+        if (!formData.name.trim()) {
+            setReservationError('예매자명을 입력해주세요.');
+            return false;
         }
 
         const currentSession = sessions.find(s => s.date === formData.date && s.time === formData.time);
 
         if (!currentSession) {
-            alert('공연 회차(시간)를 선택해주세요.');
-            return;
+            setReservationError('관람할 시간을 선택해주세요.');
+            return false;
         }
 
         if (isSessionEnded(selectedPerf, currentSession)) {
-            alert('이미 종료된 회차입니다. 예매가 불가능합니다.');
-            return;
+            setReservationError('이미 종료된 회차입니다. 다른 시간을 선택해주세요.');
+            return false;
+        }
+
+        return true;
+    };
+
+    const handleConfirmReservation = async () => {
+        const currentSession = sessions.find(s => s.date === formData.date && s.time === formData.time);
+        if (!currentSession) {
+            setReservationError('선택한 회차를 다시 확인해주세요.');
+            setBookingStep('form');
+            return false;
         }
 
         setLoading(true);
+        setReservationError('');
 
         const { data: resFetch, error: resError } = await supabase
             .from('reservations')
@@ -404,19 +478,21 @@ export default function useHomeData(navigatePath = () => {}) {
             .eq('time', formData.time);
 
         if (resError) {
-            alert('정보 확인 실패: ' + resError.message);
+            console.error('Reservation availability check failed:', resError);
+            setReservationError('잔여 좌석을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
             setLoading(false);
-            return;
+            return false;
         }
 
-        const latestBooked = resFetch.reduce((sum, res) => sum + res.tickets, 0);
+        const latestBooked = (resFetch || []).reduce((sum, res) => sum + res.tickets, 0);
         const currentTotalSeats = selectedPerf.total_seats;
 
         if (latestBooked + formData.tickets > currentTotalSeats) {
-            alert(`죄송합니다. 해당 회차는 잔여 좌석이 부족합니다.\n(현재 잔여 좌석: ${Math.max(0, currentTotalSeats - latestBooked)}석)`);
+            setReservationError(`현재 잔여 좌석은 ${Math.max(0, currentTotalSeats - latestBooked)}석입니다. 인원을 다시 선택해주세요.`);
             setLoading(false);
             fetchOccupancy();
-            return;
+            setBookingStep('form');
+            return false;
         }
 
         const { error } = await supabase.from('reservations').insert([{
@@ -430,15 +506,32 @@ export default function useHomeData(navigatePath = () => {}) {
         }]);
 
         if (error) {
-            alert('예약 실패: ' + error.message);
+            console.error('Reservation creation failed:', error);
+            setReservationError('예매를 완료하지 못했습니다. 잠시 후 다시 시도해주세요.');
+            setLoading(false);
+            return false;
         } else {
-            alert('예약이 완료되었습니다! 🎉\n(공연 관람 후 본 페이지에서 소중한 관람평을 남겨주세요.)');
-            fetchOccupancy();
-            setView('history');
-            navigatePath('/history');
-            fetchUserReservations();
+            setCompletedReservation({
+                performance: selectedPerf,
+                date: formData.date,
+                time: formData.time,
+                name: formData.name,
+                phone,
+                tickets: formData.tickets,
+                totalPrice: formData.tickets * selectedPerf.price,
+                castingInfo: currentSession.casting_info || ''
+            });
+            setBookingStep('success');
+            await fetchOccupancy();
         }
         setLoading(false);
+        return true;
+    };
+
+    const resetBookingFlow = () => {
+        setBookingStep('form');
+        setReservationError('');
+        setCompletedReservation(null);
     };
 
     const handleCancelReservation = async (resId) => {
@@ -489,7 +582,9 @@ export default function useHomeData(navigatePath = () => {}) {
         view, setView,
         isIdentified, setIsIdentified,
         phone, setPhone,
-        loading,
+        loading, initialLoading, dataError, historyError,
+        detailLoading, detailError, identityError,
+        bookingStep, reservationError, completedReservation,
 
         // Data
         performances, ongoingPerformances, endedPerformances,
@@ -508,7 +603,8 @@ export default function useHomeData(navigatePath = () => {}) {
         // Handlers
         handleIdentify, handleLogout, handleSelectPerf,
         handleChange, handleSubmit, handleCancelReservation,
+        handleConfirmReservation, resetBookingFlow,
         submitReview, handleDeleteReview, handleUpdateReview,
-        fetchUserReservations, isPerformanceEnded,
+        fetchUserReservations, fetchData, isPerformanceEnded,
     };
 }

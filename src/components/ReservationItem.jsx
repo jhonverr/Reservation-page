@@ -12,61 +12,37 @@ const ReservationItem = ({ res, onCancel }) => {
     const isEnded = isSessionEnded(res.performances || {}, res);
 
     return (
-        <div className="booking-card" style={{
-            padding: '0',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            border: '1px solid #eee',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-            opacity: isEnded ? 0.7 : 1,
-            filter: isEnded ? 'grayscale(0.5)' : 'none',
-            background: isEnded ? '#fcfcfc' : '#fff'
-        }}>
-            <div style={{
-                background: isEnded ? '#999' : 'var(--accent-color)',
-                color: '#fff',
-                padding: '1rem 1.5rem',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-            }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', opacity: 0.9 }}>TICKET NO. {res.rank || '-'}</span>
-                <span style={{ fontSize: '0.9rem', fontWeight: '800' }}>{res.tickets}매</span>
+        <div className={`booking-card history-reservation-card ${isEnded ? 'is-ended' : ''}`}>
+            <div className="history-reservation-head">
+                <span>예매 순번 {res.rank || '-'}</span>
+                <strong>{res.tickets}매</strong>
             </div>
 
-            <div style={{ padding: '1.5rem', flex: 1 }}>
-                <h4 style={{ fontSize: '1.2rem', marginBottom: '0.8rem', color: isEnded ? '#666' : 'var(--text-primary)' }}>{res.performances?.title}</h4>
+            <div className="history-reservation-body">
+                <h4>{res.performances?.title}</h4>
 
-                <div style={{ fontSize: '0.9rem', color: isEnded ? '#888' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span>📅</span>
-                        <span style={{ fontWeight: isEnded ? 'normal' : 'bold', color: isEnded ? '#888' : 'var(--text-primary)' }}>
+                <div className="history-reservation-meta">
+                    <div>
+                        <span aria-hidden="true">📅</span>
+                        <strong>
                             {res.date} {res.time} {isEnded ? '(종료)' : ''}
-                        </span>
+                        </strong>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span>👤</span>
+                    <div>
+                        <span aria-hidden="true">👤</span>
                         <span>{res.name}</span>
                     </div>
                 </div>
             </div>
 
-            <div style={{
-                padding: '1.2rem 1.5rem',
-                borderTop: res.isEnded ? '1px dashed #ddd' : '1px dashed #eee',
-                background: isEnded ? '#f5f5f5' : '#fafafa',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-            }}>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '0.75rem', color: isEnded ? '#aaa' : '#999', marginBottom: '0.2rem' }}>
+            <div className="history-reservation-footer">
+                <div className="history-reservation-amount">
+                    <span>
                         {isEnded ? '결제 금액' : '현장 결제 금액'}
                     </span>
-                    <span style={{ color: isEnded ? '#888' : 'var(--accent-color)', fontWeight: '800', fontSize: '1.1rem' }}>
+                    <strong>
                         {(res.total_price || 0).toLocaleString()}원
-                    </span>
+                    </strong>
                 </div>
                 {isEnded ? (
                     <button

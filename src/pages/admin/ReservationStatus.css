@@ -136,6 +136,50 @@
     word-break: break-word;
 }
 
+.admin-review-group-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.review-transfer-panel {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.8fr) minmax(280px, 1.4fr);
+    gap: 1rem;
+    margin: 0 0 1rem;
+    padding: 1rem;
+    border: 1px solid rgba(255, 159, 67, 0.45);
+    border-radius: 10px;
+    background: #fff8f1;
+}
+
+.review-transfer-panel strong {
+    color: var(--text-primary);
+}
+
+.review-transfer-panel p {
+    margin: 0.35rem 0 0;
+    color: #666;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.review-transfer-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 0.5rem;
+}
+
+.review-transfer-controls label {
+    grid-column: 1 / -1;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
 .admin-review-empty-card {
     padding: 2rem;
     max-width: none;
@@ -353,6 +397,20 @@
 
     .admin-review-toolbar input {
         max-width: none;
+        width: 100%;
+    }
+
+    .admin-review-group-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .review-transfer-panel,
+    .review-transfer-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .review-transfer-controls .btn {
         width: 100%;
     }
 

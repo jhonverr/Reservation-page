@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import useHomeData from '../hooks/useHomeData';
 import LoginView from '../components/home/LoginView';
 import PerformanceListView from '../components/home/PerformanceListView';
@@ -21,7 +21,9 @@ function Home() {
         view, setView,
         isIdentified,
         phone, setPhone,
-        loading,
+        loading, initialLoading, dataError, historyError,
+        detailLoading, detailError, identityError,
+        bookingStep, reservationError, completedReservation,
 
         // Data
         performances, ongoingPerformances, endedPerformances,
@@ -40,8 +42,9 @@ function Home() {
         // Handlers
         handleIdentify, handleLogout, handleSelectPerf,
         handleChange, handleSubmit, handleCancelReservation,
+        handleConfirmReservation, resetBookingFlow,
         submitReview, handleDeleteReview, handleUpdateReview,
-        fetchUserReservations, isPerformanceEnded,
+        fetchUserReservations, fetchData, isPerformanceEnded,
     } = useHomeData(navigatePath);
 
     const goToView = (nextView) => {
@@ -51,7 +54,7 @@ function Home() {
         } else if (nextView === 'history') {
             if (!isIdentified) {
                 setView('login');
-                navigatePath('/login');
+                navigate('/login', { state: { from: '/history' } });
                 return;
             }
             setView('history');
@@ -59,7 +62,10 @@ function Home() {
             navigatePath('/history');
         } else if (nextView === 'login') {
             setView('login');
-            navigatePath('/login');
+            const returnPath = location.pathname.startsWith('/performance/')
+                ? `${location.pathname}#booking-panel`
+                : location.pathname === '/history' ? '/history' : '/';
+            navigate('/login', { state: { from: returnPath } });
         } else {
             setView(nextView);
         }
@@ -110,23 +116,38 @@ function Home() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location.pathname, performanceId, performances, selectedPerf?.id, isIdentified]);
 
+    useEffect(() => {
+        if (location.hash === '#booking-panel' && view === 'reserve' && selectedPerf) {
+            requestAnimationFrame(() => {
+                document.getElementById('booking-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        }
+    }, [location.hash, selectedPerf, view]);
+
+    useEffect(() => {
+        const siteName = '더열정 뮤지컬 예매 페이지';
+        document.title = selectedPerf && performanceId
+            ? `${selectedPerf.title} | ${siteName}`
+            : siteName;
+    }, [performanceId, selectedPerf]);
+
     return (
         <div className="container">
             <header className="header">
                 <div className="header-top">
-                    <h1 className="logo" onClick={() => goToView('performances')} style={{ cursor: 'pointer' }}>더열정 뮤지컬 예매 페이지</h1>
+                    <Link className="logo" to="/" onClick={() => setView('performances')}>더열정 뮤지컬 예매</Link>
                 </div>
                 <div className="header-bottom">
                     <nav className="nav-container">
                         <div className="menu-group">
-                            <button className={`nav-btn ${view === 'performances' ? 'active' : ''}`} onClick={() => goToView('performances')}>공연 정보</button>
-                            <button className={`nav-btn ${view === 'history' ? 'active' : ''}`} onClick={() => goToView('history')}>예매 내역</button>
+                            <button aria-current={view === 'performances' || view === 'reserve' ? 'page' : undefined} className={`nav-btn ${view === 'performances' || view === 'reserve' ? 'active' : ''}`} onClick={() => goToView('performances')}>공연 목록</button>
+                            <button aria-current={view === 'history' ? 'page' : undefined} className={`nav-btn ${view === 'history' ? 'active' : ''}`} onClick={() => goToView('history')}>예매 내역</button>
                         </div>
                         <div className="auth-group">
                             {isIdentified ? (
                                 <button className="auth-btn-logout" onClick={handleLogout}>로그아웃</button>
                             ) : (
-                                <button className={`auth-btn ${view === 'login' ? 'active' : ''}`} onClick={() => goToView('login')}>로그인</button>
+                                <button aria-current={view === 'login' ? 'page' : undefined} className={`auth-btn ${view === 'login' ? 'active' : ''}`} onClick={() => goToView('login')}>휴대전화 확인</button>
                             )}
                         </div>
                     </nav>
@@ -138,7 +159,8 @@ function Home() {
                     <LoginView
                         phone={phone}
                         setPhone={setPhone}
-                        handleIdentify={handleIdentify}
+                        error={identityError}
+                        handleIdentify={(e) => handleIdentify(e, location.state?.from || '/')}
                     />
                 )}
 
@@ -150,6 +172,9 @@ function Home() {
                         handleSelectPerf={handleSelectPerf}
                         isIdentified={isIdentified}
                         bookedPerfIds={bookedPerfIds}
+                        loading={initialLoading}
+                        error={dataError}
+                        onRetry={fetchData}
                     />
                 )}
 
@@ -170,6 +195,14 @@ function Home() {
                         setShowPrivacyModal={setShowPrivacyModal}
                         setView={goToView}
                         isPerformanceEnded={isPerformanceEnded}
+                        detailLoading={detailLoading}
+                        detailError={detailError}
+                        onRetryDetail={() => handleSelectPerf(selectedPerf, { updatePath: false, scrollToTop: false })}
+                        bookingStep={bookingStep}
+                        reservationError={reservationError}
+                        completedReservation={completedReservation}
+                        resetBookingFlow={resetBookingFlow}
+                        handleConfirmReservation={handleConfirmReservation}
                         reviews={reviews}
                         canReview={canReview}
                         hasReviewed={hasReviewed}
@@ -189,6 +222,8 @@ function Home() {
                         userReservations={userReservations}
                         handleCancelReservation={handleCancelReservation}
                         setView={goToView}
+                        error={historyError}
+                        onRetry={fetchUserReservations}
                     />
                 )}
 

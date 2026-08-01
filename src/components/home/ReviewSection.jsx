@@ -5,15 +5,16 @@ export default function ReviewSection({
     submitReview, handleDeleteReview, handleUpdateReview
 }) {
     return (
-        <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #eee' }}>
-            <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                관람평 <span style={{ fontSize: '0.9rem', color: '#888', fontWeight: 'normal' }}>({reviews.length})</span>
-            </h3>
+        <section className="review-section" aria-labelledby="review-title">
+            <h2 id="review-title" className="review-title">
+                관람평 <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 'normal' }}>({reviews.length})</span>
+            </h2>
 
             {canReview && !hasReviewed ? (
                 <form onSubmit={submitReview} className="control-panel" style={{ marginBottom: '2rem', padding: '1rem' }}>
-                    <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', fontSize: '0.9rem' }}>관람평 작성하기</p>
+                    <label htmlFor="new-review" style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', fontSize: '0.9rem', display: 'block' }}>관람평 작성하기</label>
                     <textarea
+                        id="new-review"
                         className="form-control-sm"
                         name="content"
                         placeholder="공연 재밌게 보셨나요? 솔직한 후기를 들려주세요!"
@@ -30,15 +31,15 @@ export default function ReviewSection({
                 </div>
             ) : null}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }} aria-live="polite">
                 {reviews.length === 0 ? (
-                    <p style={{ color: '#999', textAlign: 'center', padding: '1rem' }}>아직 등록된 관람평이 없습니다.</p>
+                    <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '1rem' }}>아직 등록된 관람평이 없습니다.</p>
                 ) : (
                     reviews.map(rev => (
                         <div key={rev.id} style={{ background: '#fff', padding: '1rem', borderRadius: '8px', border: '1px solid #eee' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                                 <span style={{ fontWeight: 'bold' }}>{rev.user_name}</span>
-                                <span style={{ fontSize: '0.85rem', color: '#999' }}>{new Date(rev.created_at).toLocaleDateString()}</span>
+                                <time dateTime={rev.created_at} style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{new Date(rev.created_at).toLocaleDateString()}</time>
                             </div>
 
                             {rev.user_phone === phone ? (
@@ -47,6 +48,7 @@ export default function ReviewSection({
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                             <textarea
                                                 className="form-control-sm"
+                                                aria-label={`${rev.user_name}님의 관람평 수정`}
                                                 value={editContent}
                                                 onChange={(e) => setEditContent(e.target.value)}
                                                 style={{ height: '60px', borderColor: 'var(--accent-color)' }}
@@ -81,6 +83,6 @@ export default function ReviewSection({
                     ))
                 )}
             </div>
-        </div>
+        </section>
     );
 }

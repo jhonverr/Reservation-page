@@ -1,1 +1,2 @@
-/*  /index.html  200
+/performance/:id  /.netlify/functions/performance-meta?id=:id  200
+/*                /index.html                                  200

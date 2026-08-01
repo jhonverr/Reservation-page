@@ -1,7 +1,8 @@
 import ReservationItem from '../ReservationItem';
 import { isSessionEnded } from '../../utils/date';
+import ChevronIcon from '../icons/ChevronIcon';
 
-export default function HistoryView({ loading, userReservations, handleCancelReservation, setView }) {
+export default function HistoryView({ loading, userReservations, handleCancelReservation, setView, error, onRetry }) {
     const ongoingReservations = userReservations.filter(res => !isSessionEnded(res.performances || {}, res));
     const endedReservations = userReservations.filter(res => isSessionEnded(res.performances || {}, res));
 
@@ -9,11 +10,16 @@ export default function HistoryView({ loading, userReservations, handleCancelRes
         <section className="history-view">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h2 style={{ margin: 0 }}>나의 예매 내역</h2>
-                <button className="nav-btn" onClick={() => setView('performances')} style={{ margin: 0, fontSize: '0.9rem', color: 'var(--accent-color)' }}>← 공연 목록으로</button>
+                <button className="nav-btn back-link-inline" onClick={() => setView('performances')} style={{ margin: 0, fontSize: '0.9rem', color: 'var(--accent-color)' }}><ChevronIcon direction="left" size={18} /> 공연 목록으로</button>
             </div>
 
             {loading ? (
-                <p style={{ textAlign: 'center', padding: '3rem' }}>불러오는 중...</p>
+                <div className="page-status" role="status"><div className="status-spinner" aria-hidden="true" /><p>예매 내역을 불러오고 있어요…</p></div>
+            ) : error ? (
+                <div className="page-status page-status-error" role="alert">
+                    <div><strong>예매 내역을 불러오지 못했어요.</strong><p>{error}</p></div>
+                    <button type="button" className="btn btn-secondary" onClick={onRetry}>다시 시도</button>
+                </div>
             ) : userReservations.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
                     {ongoingReservations.length > 0 && (
@@ -40,15 +46,15 @@ export default function HistoryView({ loading, userReservations, handleCancelRes
                     {endedReservations.length > 0 && (
                         <div style={{ marginTop: '1rem' }}>
                             <div style={{ marginBottom: '1.5rem' }}>
-                                <h3 style={{ marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#999' }}>
-                                    <span style={{ color: '#ccc' }}>●</span> 관람 완료 / 종료된 공연
+                                <h3 style={{ marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-secondary)' }}>
+                                    <span aria-hidden="true" style={{ color: '#737b80' }}>●</span> 관람 완료 / 종료된 공연
                                 </h3>
                                 <div style={{
                                     display: 'flex',
                                     alignItems: 'flex-start',
                                     gap: '0.6rem',
                                     fontSize: '0.8rem',
-                                    color: '#888',
+                                    color: 'var(--text-secondary)',
                                     background: '#f8f9fa',
                                     padding: '0.8rem 1rem',
                                     borderRadius: '8px',
